@@ -7,7 +7,7 @@ B=9765.625;
 Nbps=2; %QPSK
 Nt=1;
 Nr=1;
-Ns=4;
+Ns=8;
 T214 = poly2trellis(4,[17 13]); %For convolutional encoder
 tblen=12;               %For convolutional decoder
 rate= 1/2;              %convolutional coding rate
@@ -44,7 +44,7 @@ for i=1:Nblock
         data_sym(j,i)=data_sym_t(j,i);
     end
     for j=K/2+1:K
-        data_sym(j+3*K,i)=data_sym_t(j,i);
+        data_sym(j+(Ns-1)*K,i)=data_sym_t(j,i);
     end
 end
 
@@ -64,13 +64,11 @@ Tx_data=reshape(Tx_block,[],1).';
 
 
 %------------转通带-----------
-lowpass(Tx_data,B,B*Ns);
+% lowpass(Tx_data,B,B*Ns);
 for i=1:length(Tx_data)
-    Tx_data(i)=real(Tx_data(i)*(exp(sqrt(-1)*2*pi*6000*(i-1)/(B*Ns))));%
+    Tx_data(i)=real(Tx_data(i)*(exp(sqrt(-1)*2*pi*13000*(i-1)/(B*Ns))));%
 end
-% lowpass(Tx_data,13000,B*Ns);
-highpass(Tx_data,1000,B*Ns);
-% lowpass(Tx_data,13000,B*Ns);
+bandpass(Tx_data,[8000,18000],B*Ns);
 % plot(Tx_data);
 
 %------------channel--------------
@@ -92,8 +90,10 @@ Rx_data=Tx_data;
 % plot(Rx_data);
 
 %------------转基带-----------
+% Rx_data_i=hilbert(Rx_data);
+% Rx_data=Rx_data+sqrt(-1)*Rx_data_i;
 for i=1:length(Rx_data)
-    Rx_data(i)=Rx_data(i)*(exp(sqrt(-1)*2*pi*(-6000)*(i-1)/(B*Ns)));%
+    Rx_data(i)=Rx_data(i)*(exp(sqrt(-1)*2*pi*(-13000)*(i-1)/(B*Ns)));%
 end
 lowpass(Rx_data,B/2,B*Ns);%
 
