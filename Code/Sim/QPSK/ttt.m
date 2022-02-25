@@ -3,112 +3,90 @@ clear all;
 close all;
 
 K=1024;
-B=9765.625;
-Nbps=2; %QPSK
-Nt=1;
-Nr=1;
-Ns=4;
-T214 = poly2trellis(4,[17 13]); %For convolutional encoder
-tblen=12;               %For convolutional decoder
-rate= 1/2;              %convolutional coding rate
-sc_idx= [1:4:K];        %indices of subcarriers for channel estimation
-Nbit= K*Nbps*rate;      %number of information bits in one OFDM symbol
-SNRdB= 10;              %signal-to-noise ratio in dB
-SNR= 10^(SNRdB/10);     %SNR in linear scale
-Kg= 240;                %gap between OFDM symbol or between OFDM symbol and pilot block
-L= 80;                  %length of channel
-Nfrm=1;                 % frame
-Nblock=2;              % block per frame
-M=4;
-
-%------------generate Tx bits--------------
-P_bit=randi([0 1],1,K*Nblock*Nfrm);
-% load P_bitQPSK.mat;
-bit_seq=reshape(P_bit,K,length(P_bit)/K);
-
-%------------channel coding--------------
-for i=1:length(P_bit)/K
-code_bitt(i,:)=convenc(bit_seq(:,i),T214);
-code_bit(i,:)=randintrlv(code_bitt(i,:),0);
-%code_bit=code_bitt;
+B=9765.625;             %带宽
+Ns=8;                   %过采样倍数
+Kg= 240;                %保护间隔
+Nblock=2;               %OFDM块数
+Nfrm=1;
+%----随机生成QPSK符号----
+data_sym_t=zeros(K,Nblock);
+temp=zeros(K,Nblock);
+for i=1:Nblock
+    for j=1:K
+        temp(j,i)=randi([1 4]);
+        if(temp(j,i)==1) data_sym_t(j,i)=1+0*sqrt(-1);
+        elseif(temp(j,i)==2) data_sym_t(j,i)=0+1*sqrt(-1);
+        elseif(temp(j,i)==3) data_sym_t(j,i)=-1+0*sqrt(-1);
+        else data_sym_t(j,i)=0+-1*sqrt(-1);
+        end
+    end
 end
-
-%------------QPSK--------------
-data_sym_t=qpsk(code_bit).';
+% scatterplot(data_sym_t(:,1));
+% for i=1:16
+%     data_sym_t(K/2+i,:)=0;
+%     data_sym_t(K/2+1-i,:)=0;
+%     data_sym_t(K/4+i,:)=0;
+% end
 
 %------------频域插零----------
 % data_sym=data_sym_t;
 data_sym=zeros(K*Ns,Nblock);
-for i=1:Nblock
+for i=1:Nblock                              %在中间插零，使ifft后实现Ns倍时域过采样
     for j=1:K/2
         data_sym(j,i)=data_sym_t(j,i);
     end
     for j=K/2+1:K
-        data_sym(j+3*K,i)=data_sym_t(j,i);
+        data_sym(j+(Ns-1)*K,i)=data_sym_t(j,i);
     end
 end
 
-%------------S/P--------------
-% sym_seq=reshape(data_sym,K,length(data_sym)/K);
-
-%------------IFFT--------------
-% ifft_data=ifft(sym_seq); 
+%------------ifft----------
 ifft_data=ifft(data_sym);
 
-%------------ZP--------------
+%------------插入保护间隔----------
 Tx_block=[ifft_data;zeros(Kg*Ns,Nfrm*Nblock)];
 
-%------------P/S--------------
-Tx_data=reshape(Tx_block,[],1).';
-% figure(1);
+Tx_data_t=reshape(Tx_block,[],1).';
 
-
-%------------转通带-----------
-% lowpass(Tx_data,B,B*Ns);
-for i=1:length(Tx_data)
-    Tx_data(i)=real(Tx_data(i)*(exp(sqrt(-1)*2*pi*13000*(i-1)/(B*Ns))));%
+%-----------调制到通带----------
+for i=1:length(Tx_data_t)
+    Tx_data(i)=real(Tx_data_t(i)*(exp(sqrt(-1)*2*pi*13000*(i-1)/(B*Ns))));%采样间隔为1/(B*Ns)
 end
+% fft(Tx_data(1:Ns:K*Ns));
 
-%------------channel--------------
+% plot(Tx_data);
+%------------信道----------
+% Npath=1;
+% UWAchannel=UWAchannel_generation(Npath,Nblock*(K+Kg)/B,1/(Ns*B),80,0.1,4,1);
+% Rx_data=zeros(1,Nblock*(K+Kg)*Ns+L*Ns);
+% for t=1:height(UWAchannel)
+%     for p=1:Npath
+%         if(t-UWAchannel(t,p*2)*Ns<0)
+%             Rx_data(t)=0;
+%         else
+%             Rx_data(t)=Rx_data(t)+UWAchannel(t,p*2-1)*Tx_data(round(t-UWAchannel(t,p*2)*Ns));
+%         end
+%     end
+% end
+% Rx_data=awgn(Tx_data,SNRdB,'measured');
 Rx_data=Tx_data;
-figure();
-plot(Rx_data);
+% figure();
+% plot(Rx_data);
 
 %------------转基带-----------
+% Rx_data=Rx_data+sqrt(-1)*Rx_data_i;
 for i=1:length(Rx_data)
     Rx_data(i)=Rx_data(i)*(exp(sqrt(-1)*2*pi*(-13000)*(i-1)/(B*Ns)));%
 end
-lowpass(Rx_data,B/2,B*Ns);
+% Rx_data_i=hilbert(Rx_data);
+Rx_data=lowpass(Rx_data,B*0.8,B*Ns);
 
-%------------S/P--------------
-for nblk=1: 1 %Nblock
-    nblk
-    Noffset=(nblk-1)*(K+Kg);
-    Gap=Ns*Noffset;
-    block_symbol=data_sym_t(:,nblk).';
-    pilot_symbol=block_symbol(sc_idx);
-    block_bit=bit_seq(:,nblk).';
-    pilot_bit=block_bit(sc_idx);
-    Rx_block=Rx_data(:,Gap+1:Gap+round((K+Kg)*Ns));
-    figure();
-    plot(abs(Rx_block(1,:)));
-    
-    decsym=fft(Rx_block(1:Ns:K*Ns));
-
-    
-    for nt= 1: Nt
-        %BER calculation for turbo detection
-        Decod_InfoBit= LLR_info(nt,:)<0;
-        ErrNum(nt)= sum(block_bit~=Decod_InfoBit);
-        ber(nt)= ErrNum(nt)/Nbit;
-        Dec_CodBit= randdeintrlv(demod_qpsk(S_Est(nt,:)),0);
-        Decod_InfoBit1= vitdec(Dec_CodBit,T214,tblen,'cont','hard');
-        Decod_InfoBit1= Decod_InfoBit1(tblen+1: Nbit);
-        ErrNum1(nt)= sum(block_bit(1: K-tblen)~=Decod_InfoBit1);
-        ErrNum2(nt)=sum(code_bitt(nblk,:)~=Dec_CodBit);
-        ber1(nt)= ErrNum1(nt)/Nbit;
-        ber_rec(nblk)=ber(nt);
-        berraw(nt)=ErrNum2(nt)/(2*Nbit);
-        ber_recraw(nblk)=berraw(nt);
-    end
+for i=1:1%Nblock
+    Rx_block=Rx_data(1:Ns:K*Ns);
+    Rx_sym=fft(Rx_block);
+    bit=demod_qpsk(data_sym_t(:,i).').';
+    Rx_bit=demod_qpsk(Rx_sym).';
+    err=sum(xor(bit,Rx_bit));
+    scatterplot(Rx_sym);
 end
+

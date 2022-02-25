@@ -18,12 +18,12 @@ SNR= 10^(SNRdB/10);     %SNR in linear scale
 Kg= 240;                %gap between OFDM symbol or between OFDM symbol and pilot block
 L= 80;                  %length of channel
 Nfrm=1;                 % frame
-Nblock=2;              % block per frame
+Nblock=10;              % block per frame
 M=4;
 
 %------------generate Tx bits--------------
-P_bit=randi([0 1],1,K*Nblock*Nfrm);
-% load P_bitQPSK.mat;
+% P_bit=randi([0 1],1,K*Nblock*Nfrm);
+load P_bitQPSK.mat;
 bit_seq=reshape(P_bit,K,length(P_bit)/K);
 
 %------------channel coding--------------
@@ -35,6 +35,11 @@ end
 
 %------------QPSK--------------
 data_sym_t=qpsk(code_bit).';
+
+% for i=1:16
+%     data_sym_t(i)=0;
+%     data_sym_t(1024+1-i)=0;
+% end
 
 %------------频域插零----------
 % data_sym=data_sym_t;
@@ -68,24 +73,25 @@ Tx_data=reshape(Tx_block,[],1).';
 for i=1:length(Tx_data)
     Tx_data(i)=real(Tx_data(i)*(exp(sqrt(-1)*2*pi*13000*(i-1)/(B*Ns))));%
 end
-bandpass(Tx_data,[8000,18000],B*Ns);
+% bandpass(Tx_data,[8000,18000],B*Ns);
 % plot(Tx_data);
 
 %------------channel--------------
-Npath=5;
-% UWAchannel=UWAchannel_generation(Npath,Nblock*(K+Kg)/B,1/(Ns*B),80,0.1,4,1);
-% Rx_data=zeros(1,Nblock*(K+Kg)*Ns+L*Ns);
-% for t=1:height(UWAchannel)
-%     for p=1:Npath
-%         if(t-UWAchannel(t,p*2)*Ns<0)
-%             Rx_data(t)=0;
-%         else
-%             Rx_data(t)=Rx_data(t)+UWAchannel(t,p*2-1)*Tx_data(round(t-UWAchannel(t,p*2)*Ns));
-%         end
-%     end
-% end
-% Rx_data=awgn(Rx_data,SNRdB,'measured');
-Rx_data=Tx_data;
+Npath=3;
+UWAchannel=UWAchannel_generation(Npath,Nblock*(K+Kg)/B,1/(Ns*B),80,0.1);
+Rx_data=zeros(1,Nblock*(K+Kg)*Ns+L*Ns);
+for t=1:height(UWAchannel)
+    for p=1:Npath
+        if(round(t-UWAchannel(t,p*2)*Ns)<=0)
+            Rx_data(t)=0;
+        else
+            Rx_data(t)=Rx_data(t)+UWAchannel(t,p*2-1)*...
+            Tx_data(round(t-UWAchannel(t,p*2)*Ns));
+        end
+    end
+end
+Rx_data=awgn(Rx_data,SNRdB,'measured');
+% Rx_data=Tx_data;
 % figure();
 % plot(Rx_data);
 
@@ -95,39 +101,44 @@ Rx_data=Tx_data;
 for i=1:length(Rx_data)
     Rx_data(i)=Rx_data(i)*(exp(sqrt(-1)*2*pi*(-13000)*(i-1)/(B*Ns)));%
 end
-lowpass(Rx_data,B/2,B*Ns);%
+% for i=1:Nr
+%     Rx_data(i,:)=interp1((0:length(Rx_data(i,:))-1),Rx_data(i,:),(0:length(Rx_data(i,:))-1)/(1+0.001),'spline');
+% end
+Rx_data=lowpass(Rx_data,B*0.6,B*Ns);%
+
+
 
 %------------S/P--------------
 % BER=zeros(1,Nblock);
 doppler_scale=zeros(1,Nblock);
 cfo=zeros(1,Nblock);
-for nblk=1: 1 %Nblock
+for nblk=1: Nblock
     nblk
-    Noffset=(nblk-1)*(K+Kg); %-floor(doppler_scale(max(1,nblk-1))*(K+Kg)*(nblk-1))
+    Noffset=(nblk-1)*(K+Kg)-floor(doppler_scale(max(1,nblk-1))*(K+Kg)*(nblk-1)); %
     Gap=Ns*Noffset;
     block_symbol=data_sym_t(:,nblk).';
     pilot_symbol=block_symbol(sc_idx);
     block_bit=bit_seq(:,nblk).';
     pilot_bit=block_bit(sc_idx);
-    Rx_block=Rx_data(:,Gap+1:Gap+round((K+Kg)*Ns));%/(1+0.003)
-    figure();
-    plot(abs(Rx_block(1,:)));
+    Rx_block=Rx_data(:,Gap+1:Gap+round((K+Kg)*Ns));%/(1-0.005)                             5~0.0005    30~0.003
+%     figure();
+%     plot(abs(Rx_block(1,:)));
 %     doppler_scale(nblk)=0;
 %     cfo(nblk)=0;
 %     cfo=CFOIteration(-10,10,1,1,1,sc_idx,Nt,Nr,1,K,L,Rx_block,pilot_symbol,block_symbol);
-%     [doppler_scale(nblk),cfo(nblk)]=D2Search(-0.004,0.004,-1,1,1,1,1,sc_idx,Nt,Nr,1,K,L,Rx_block,pilot_symbol,block_symbol);
-%     [doppler_scale(nblk),cfo(nblk),shift(nblk)]=D3Iteration(0.002,0.004,-3,3,1,1,1,sc_idx,Nt,Nr,1,K,L,Rx_data,nblk,doppler_scale,pilot_symbol,block_symbol);
+    [doppler_scale(nblk),cfo(nblk)]=D2Search(-0.0035,-0.0025,-1,1,1,1,1,sc_idx,Nt,Nr,Ns,K,L,Rx_block,pilot_symbol,block_symbol,SNR,SNRdB);
+%     [doppler_scale(nblk),cfo(nblk),shift(nblk)]=D3Iteration(-0.01,0.01,-3,3,1,1,1,sc_idx,Nt,Nr,Ns,K,L,Rx_data,nblk,doppler_scale,pilot_symbol,block_symbol);
 %     Noffset=(nblk-1)*(K+Kg)-floor(doppler_scale(max(1,nblk-1))*1264*(nblk-1));
 %     Rx_block=Rx_data(:,Noffset+1:Noffset+(K+Kg));
-%     for i=1:Nr
-%         Rx_block(i,:)=interp1((0:length(Rx_block(i,:))-1),Rx_block(i,:),(0:length(Rx_block(i,:))-1)/(1+doppler_scale(nblk)),'spline');
-%     end
-%       cfo(nblk) = CFOEstimation(-20,20,1,1,1,sc_idx,Nt,Nr,1,K,L,Rx_block,pilot_symbol,block_symbol);
-%       for i=1:Nr
-%           for n=1:length(Rx_block(i,:))
-%               Rx_block(i,n)=Rx_block(i,n)*(exp(sqrt(-1)*2*pi*cfo(nblk)*(n-1)/9765.625));%48828.125
-%           end
-%       end
+    for i=1:Nr
+        Rx_block(i,:)=interp1((0:length(Rx_block(i,:))-1),Rx_block(i,:),(0:length(Rx_block(i,:))-1)/(1+doppler_scale(nblk)),'spline');
+    end
+%     cfo(nblk) = CFOEstimation(-20,20,1,1,1,sc_idx,Nt,Nr,1,K,L,Rx_block,pilot_symbol,block_symbol);
+    for i=1:Nr
+        for n=1:length(Rx_block(i,:))
+            Rx_block(i,n)=Rx_block(i,n)*(exp(sqrt(-1)*2*pi*(cfo(nblk)-13000*doppler_scale(nblk))*(n-1)/(9765.625*Ns)));%48828.125
+        end
+    end
 %     figure();
 %     plot(abs(Rx_block(1,:)));
     
@@ -135,13 +146,26 @@ for nblk=1: 1 %Nblock
     ola=Rx_block(:,1+K*Ns: Ns: (K+L-1)*Ns);
     y(:,1:L-1)=y(:,1:L-1)+ola(:,1:L-1);
     h= FreqDomain_MIMO_ChnnEst_fn_26May11(y, block_symbol, Nt, Nr, Ns, K, L, sc_idx, SNR); 
-%     figure();
-%     plot(abs(h(1,:)));
+    figure();
+    plot(abs(h(1,:)));
     
     LLa_cod= log(0.5)*ones(2*Nt,Nbps*K);
     LLR_info= zeros(Nt,Nbit);
     [S_Est LLe_cod]= MIMO_OFDM_SoftEqu_qpsk_fn_28may11(y,LLa_cod,h,K,Ns,L,Nt,Nr,Nbps,SNRdB);
+    scatterplot(S_Est);
     S_Est_Iter= S_Est;%((k-1)*Nt+1: k*Nt,:)
+
+    BER_cost_d=0;
+    symbol_est=S_Est;
+    pilot_symbol_est=symbol_est(:,sc_idx);
+    symbol_err=pilot_symbol-pilot_symbol_est;
+    for nt=1:Nt
+        for k=1:K/4
+            BER_cost_d=BER_cost_d+(symbol_err(nt,k)*conj(symbol_err(nt,k)));
+        end
+    end
+
+
     for nt= 1: Nt
         LLe_cod((nt-1)*2+1,:)= randdeintrlv(LLe_cod((nt-1)*2+1,:), 0); %interleaving before delivering to equalizer
         LLe_cod((nt-1)*2+2,:)= randdeintrlv(LLe_cod((nt-1)*2+2,:), 0);
