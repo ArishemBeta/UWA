@@ -36,11 +36,6 @@ end
 %------------QPSK--------------
 data_sym_t=qpsk(code_bit).';
 
-% for i=1:16
-%     data_sym_t(i)=0;
-%     data_sym_t(1024+1-i)=0;
-% end
-
 %------------频域插零----------
 % data_sym=data_sym_t;
 data_sym=zeros(K*Ns,Nblock);
@@ -85,7 +80,7 @@ for t=1:height(UWAchannel)
         if(round(t-UWAchannel(t,p*2)*Ns)<=0)
             Rx_data(t)=0;
         else
-            Rx_data(t)=Rx_data(t)+UWAchannel(t,p*2-1)*...
+            Rx_data(t)=Rx_data(t)+UWAchannel(t,p*2-1)*...%round(t-UWAchannel(t,p*2)*Ns)
             Tx_data(round(t-UWAchannel(t,p*2)*Ns));
         end
     end
@@ -126,7 +121,7 @@ for nblk=1: Nblock
 %     doppler_scale(nblk)=0;
 %     cfo(nblk)=0;
 %     cfo=CFOIteration(-10,10,1,1,1,sc_idx,Nt,Nr,1,K,L,Rx_block,pilot_symbol,block_symbol);
-    [doppler_scale(nblk),cfo(nblk)]=D2Search(-0.0035,-0.0025,-1,1,1,1,1,sc_idx,Nt,Nr,Ns,K,L,Rx_block,pilot_symbol,block_symbol,SNR,SNRdB);
+    [doppler_scale(nblk),cfo(nblk)]=D2Search(-0.0032,-0.0028,-1,1,1,1,1,sc_idx,Nt,Nr,Ns,K,L,Rx_block,pilot_symbol,block_symbol,SNR,SNRdB);
 %     [doppler_scale(nblk),cfo(nblk),shift(nblk)]=D3Iteration(-0.01,0.01,-3,3,1,1,1,sc_idx,Nt,Nr,Ns,K,L,Rx_data,nblk,doppler_scale,pilot_symbol,block_symbol);
 %     Noffset=(nblk-1)*(K+Kg)-floor(doppler_scale(max(1,nblk-1))*1264*(nblk-1));
 %     Rx_block=Rx_data(:,Noffset+1:Noffset+(K+Kg));
