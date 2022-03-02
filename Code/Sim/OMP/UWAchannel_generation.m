@@ -10,9 +10,9 @@ A=0.01;
 %     2,0,1,0;
 %     1,0,1,0;
 %     1,0,1,0];
-diffD=[19,30;
-    39,30;
-    59,30];
+diffD=[9,0;
+    24,0;
+    59,0];
 
 t=[0:dT:T-dT];
 d=[0:dD:D-dD];
@@ -39,15 +39,15 @@ for nt=2:length(t)
         tempA=UWAchannel(nt-1,2*np-1)*1;%+0.005*(rand()-0.5);
         tempD=diffD(np,1)+diffD(np,2)*(nt-1)*dT;
 %          UWAchannel(nt,:)=UWAchannel(nt,:)+tempA*1*sign(dirac(d-tempD));
-%         UWAchannel_plot(nt,round(tempD/dD))=tempA;
+        UWAchannel_plot(nt,round(tempD/dD))=tempA;
         UWAchannel(nt,2*np-1)=tempA;
         UWAchannel(nt,2*np)=tempD;
     end
 end
-% image(d,t,UWAchannel_plot,'CDataMapping','scaled');%
-% colorbar;
-% colormap('jet');
-% caxis('auto');%[0,ceil(max(max(UWAchannel_plot)))]
-% xlabel('delay(ms)','FontSize',12);
-% ylabel('time(s)','FontSize',12);
+image(d,t,UWAchannel_plot,'CDataMapping','scaled');%
+colorbar;
+colormap('jet');
+caxis('auto');%[0,ceil(max(max(UWAchannel_plot)))]
+xlabel('delay(ms)','FontSize',12);
+ylabel('time(s)','FontSize',12);
 return

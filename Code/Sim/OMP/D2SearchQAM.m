@@ -1,7 +1,7 @@
 function [doppler_scale,cfo]=D2SearchQAM(ald,ahd,alc,ahc,P,u,v,sc_idx,Nt,Nr,Ns,K,L,RX_block,pilot_symbol,block_symbol,SNR,SNRdB,Nbps)
 recx=zeros(2,300);
 d=[ald:0.00005:ahd];
-c=[alc:0.1:ahc];
+c=[alc:0.2:ahc];
 % c=alc;(ahc-alc)/2
 ld=length(d);
 lc=length(c);
