@@ -3,8 +3,8 @@ clear all;
 close all;
 
 
-MMode='16QAM';
-K=64;
+MMode='QPSK';
+K=128;
 B=9765.625;
 % K=1024;
 % B=9765.625;
@@ -24,7 +24,7 @@ Nbit= K*Nbps*rate;      %number of information bits in one OFDM symbol
 SNRdB= 10;              %signal-to-noise ratio in dB
 SNR= 10^(SNRdB/10);     %SNR in linear scale
 Kg= 240;                %gap between OFDM symbol or between OFDM symbol and pilot block
-L= 20;                  %length of channel
+L= 40;                  %length of channel
 Nfrm=1;                 % frame
 Nblock=10;              % block per frame
 M=4;
@@ -83,8 +83,8 @@ end
 % plot(Tx_data);
 
 %------------channel--------------
-Npath=1;
-UWAchannel=UWAchannel_generation(Npath,Nblock*(K+Kg)/B,1/(Ns*B),80,0.1);
+Npath=2;
+UWAchannel=UWAchannel_generation(Npath,Nblock*(K+Kg)/B,1/(Ns*B),L,0.1);
 Rx_data=zeros(1,Nblock*(K+Kg)*Ns+L*Ns);
 for t=1:height(UWAchannel)
     for p=1:Npath
@@ -126,9 +126,9 @@ for nblk=1: Nblock
 %     plot(abs(Rx_block(1,:)));
     
     if (strcmp(MMode,'QPSK'))
-        [doppler_scale(nblk),cfo(nblk)]=D2SearchQPSK(-0.0032,-0.0028,-1,1,1,1,1,sc_idx,Nt,Nr,Ns,K,L,Rx_block,pilot_symbol,block_symbol,SNR,SNRdB,Nbps);
+        [doppler_scale(nblk),cfo(nblk)]=D2SearchQPSK(-0.0031,-0.0029,-1,1,1,1,1,sc_idx,Nt,Nr,Ns,K,L,Rx_block,pilot_symbol,block_symbol,SNR,SNRdB,Nbps);
     elseif (strcmp(MMode,'16QAM'))
-        [doppler_scale(nblk),cfo(nblk)]=D2SearchQAM(-0.0002,0.0002,-1,1,1,1,1,sc_idx,Nt,Nr,Ns,K,L,Rx_block,pilot_symbol,block_symbol,SNR,SNRdB,Nbps);
+        [doppler_scale(nblk),cfo(nblk)]=D2SearchQAM(-0.0031,-0.0029,-1,1,1,1,1,sc_idx,Nt,Nr,Ns,K,L,Rx_block,pilot_symbol,block_symbol,SNR,SNRdB,Nbps);
     end
 
     for i=1:Nr
@@ -145,7 +145,7 @@ for nblk=1: Nblock
     y(:,1:L-1)=y(:,1:L-1)+ola(:,1:L-1);
 
     z=fft(y).';
-    H=OMP(z,Npath,0,B,Ns,K,sc_idx,block_symbol.',0.00001,0.00001,0.1);
+    H=OMP(z,Npath,1,B,Ns,K,sc_idx,block_symbol.',0.00001,0.00001,0.1);
 
     h= FreqDomain_MIMO_ChnnEst_fn_26May11(y, block_symbol, Nt, Nr, Ns, K, L, sc_idx, SNR); 
     figure();

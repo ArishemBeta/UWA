@@ -21,12 +21,12 @@ for n=1:Namp+1
         for m=1:K
             for k=1:K
                 (m-1)*K+k
-                gamma(m,k)=subs(Gn,'f',(m-k)*K/B+(cfo-beta(b)*(13000+(m-1-K/2)*K/B)));
+                gamma(m,k)=subs(Gn,'f',(m-k)*B/K+(cfo-beta(b)*(13000+(m-1-K/2)*B/K))/(1+beta(b)));
             end
         end
         for p=1:Np
             (n-1)*Np*Nb+(b-1)*Np+p
-            A(:,(n-1)*Np*Nb+(b-1)*Np+p)=diag(exp(-sqrt(-1)*2*pi*delay_hat(p))*B/K*[-K/2:K/2-1])...
+            A(:,(n-1)*Np*Nb+(b-1)*Np+p)=diag(exp(-sqrt(-1)*2*pi*delay_hat(p)*B/K*[-K/2:K/2-1]))...
                 *gamma...
                 *sp;
         end
@@ -65,15 +65,18 @@ end
 
 H=zeros(K,K);
 for i=1:length(index)
-    Gn=diff(G,n-1);
+    Gn=diff(G,param(i,1));
     for m=1:K
         for k=1:K
-            gamma(m,k)=subs(Gn,'f',(m-k)*K/B+(cfo-beta(pos(i,2))*(13000+(m-1-K/2)*K/B)));
+            gamma(m,k)=subs(Gn,'f',(m-k)*B/K+(cfo-param(i,2)*(13000+(m-1-K/2)*B/K))/(1+param(i,2)));
         end
     end
-    H=H+xind(i)*diag(exp(-sqrt(-1)*2*pi*delay_hat(p))*B/K*[-K/2:K/2-1])*gamma;
+    H=H+xind(i)*diag(exp(-sqrt(-1)*2*pi*param(i,3)*B/K*[-K/2:K/2-1]))*gamma;
 end
-
+figure();
+image(abs(H),'CDataMapping','scaled');
+colorbar;
+return
 % function x = OMP(A,b,sparsity)
 % %Step 1
 % index = []; k = 1; [Am, An] = size(A); r = b; x=zeros(An,1);
