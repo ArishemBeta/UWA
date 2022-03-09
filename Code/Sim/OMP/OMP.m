@@ -1,7 +1,7 @@
 function H=OMP(z,Npa,Namp,B,Ns,K,sc_idx,block_symbol,bmax,dbeta,cfo)
 sparsity=Npa*(Namp+1);
-t=zeros(1,K);
-t(sc_idx)=1;t(sc_idx+1)=1;t(max(1,sc_idx-1))=1;
+t=ones(1,K);
+t(sc_idx+1)=0;
 selector=zeros(K,K);
 selector(logical(eye(size(selector))))=t;
 zp=selector*z;
@@ -76,7 +76,9 @@ end
 figure();
 image(abs(H),'CDataMapping','scaled');
 colorbar;
+
 return
+
 % function x = OMP(A,b,sparsity)
 % %Step 1
 % index = []; k = 1; [Am, An] = size(A); r = b; x=zeros(An,1);

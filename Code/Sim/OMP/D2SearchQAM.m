@@ -54,7 +54,7 @@ symbol_est=S_Est;
 pilot_symbol_est=symbol_est(:,sc_idx);
 symbol_err=pilot_symbol-pilot_symbol_est;
 for nt=1:Nt
-    for k=1:K/4
+    for k=1:length(sc_idx)
         BER_cost_d=BER_cost_d+(symbol_err(nt,k)*conj(symbol_err(nt,k)));
     end
 end
