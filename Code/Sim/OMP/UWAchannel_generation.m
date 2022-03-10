@@ -1,4 +1,4 @@
-function UWAchannel=UWAchannel_generation(Npath,T,dT,D,dD)
+function UWAchannel=UWAchannel_generation(Npath,T,dT,D,dD,doppler,B)
 % Npath=5;
 % T=0.2;dT=0.00025;
 % D=80;dD=0.1;
@@ -10,9 +10,9 @@ A=0.01;
 %     2,0,1,0;
 %     1,0,1,0;
 %     1,0,1,0];
-diffD=[2,24;
-    8,24;
-    59,30];
+diffD=[2*10*dD,doppler;
+    8*10*dD,doppler;
+    59*10*dD,doppler];
 
 t=[0:dT:T-dT];
 d=[0:dD:D-dD];

@@ -1,6 +1,6 @@
 function [doppler_scale,cfo]=D2SearchQPSK(ald,ahd,alc,ahc,P,u,v,sc_idx,Nt,Nr,Ns,K,L,RX_block,pilot_symbol,block_symbol,SNR,SNRdB,Nbps,B)
-d=[ald:0.00005:ahd];
-c=[alc:0.1:ahc];
+d=[ald:0.0001:ahd];
+c=[alc:0.2:ahc];
 % c=alc;(ahc-alc)/2
 ld=length(d);
 lc=length(c);
@@ -16,20 +16,21 @@ for i=1:ld
 %         recx(2,j)=ac;
         BER_cost=BER_cost_d_calculation(RX_block,ad,ac,Nt,Nr,block_symbol,Ns,K,L,sc_idx,pilot_symbol,SNR,SNRdB,Nbps,B);
         recy(i,j)=BER_cost;
-%         scatter3(ad,ac,BER_cost,color(1+mod(i,6)));
-%         hold on;
-% xlabel('doppler');ylabel('cfo');zlabel('cost');
+        scatter3(ad,ac,BER_cost,color(1+mod(i,6)));
+        hold on;
+
         nnnn=nnnn+1;
     end
     recy_min(i)=min(recy(i,:));
 end
+xlabel('doppler');ylabel('cfo');zlabel('cost');
 
-image(d,c,recy,'CDataMapping','scaled');%
-colorbar;
-colormap('jet');
-caxis('auto');
-xlabel('doppler','FontSize',12);
-ylabel('cfo(Hz)','FontSize',12);
+% image(d,c,recy,'CDataMapping','scaled');%
+% colorbar;
+% colormap('jet');
+% caxis('auto');
+% xlabel('doppler','FontSize',12);
+% ylabel('cfo(Hz)','FontSize',12);
 
 m=min(min(recy));
 % figure();
