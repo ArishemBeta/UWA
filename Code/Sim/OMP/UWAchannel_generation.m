@@ -16,23 +16,14 @@ UWAchannel=zeros(length(t),2*Npath);
 for np=1:Npath
     tempA=A*1*0.5^(np-1)+0.00001*rand();
     tempD=diffD(np,1);
-    UWAchannel_plot(1,round(tempD/dD)+1)=tempA;
+%     UWAchannel_plot(1,round(tempD/dD)+1)=tempA;
     UWAchannel(1,2*np-1)=tempA;
-    UWAchannel(1,2*np)=tempD/dD*dT;
+    UWAchannel(1,2*np)=tempD/1000;
 end
 for nt=2:length(t)
     for np=1:Npath
-%         tempA=0;
-%         for na=1:NAmplitude
-%             tempA=tempA+1/factorial(na-1)*diffA(np,na)*((nt-1)*dT)^(na-1);
-            
-%         end
-%         tempD=0;
-%         for nd=1:NDelay
-%             tempD=tempD+(-1)^nd/fractorial(nd)*diffD(nd)*((nt-1)*dT)^nd;
-%         end
         tempA=UWAchannel(nt-1,2*np-1)*1+0.00001*(rand()-0.5);
-        tempD=diffD(np,1)+diffD(np,2)*(nt-1)*dT*1000;
+        tempD=diffD(np,1)-diffD(np,2)*(nt-1)*dT*1000;
 %          UWAchannel(nt,:)=UWAchannel(nt,:)+tempA*1*sign(dirac(d-tempD));
 %         UWAchannel_plot(nt,round(tempD/dD)+1)=tempA;
         UWAchannel(nt,2*np-1)=tempA;

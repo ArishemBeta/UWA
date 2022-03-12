@@ -1,5 +1,5 @@
 function [doppler_scale,cfo]=D2SearchQPSK(ald,ahd,alc,ahc,P,u,v,sc_idx,Nt,Nr,Ns,K,L,RX_block,pilot_symbol,block_symbol,SNR,SNRdB,Nbps,B)
-d=[ald:0.0001:ahd];
+d=[ald:0.00001:ahd];
 c=[alc:0.4:ahc];
 % c=alc;(ahc-alc)/2
 ld=length(d);
