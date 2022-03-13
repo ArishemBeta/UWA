@@ -3,8 +3,8 @@ clear all;
 close all;
 
 MMode='QPSK';
-K=1024*0.5^4;
-B=9765.625*0.5^2;
+K=1024*0.5^3;
+B=9765.625*0.5^1;
 % K=1024;
 % B=9765.625;
 if(strcmp(MMode,'QPSK'))
@@ -18,13 +18,13 @@ Ns=16;
 T214 = poly2trellis(4,[17 13]); %For convolutional encoder
 tblen=12;               %For convolutional decoder
 rate= 1/2;              %convolutional coding rate
-sc_idx= [1:2:K];        %indices of subcarriers for channel estimation
+sc_idx= [1:4:K];        %indices of subcarriers for channel estimation
 Nbit= K*Nbps*rate;      %number of information bits in one OFDM symbol
 SNRdB= 20;              %signal-to-noise ratio in dB
 SNR= 10^(SNRdB/10);     %SNR in linear scale
-% Lms=8;                  %length of channel (ms)
-% L= round(Lms*B/1000);   %length of channel
-L=8;
+Lms=8;                  %length of channel (ms)
+L= min(round(Lms*B/1000),length(sc_idx));   %length of channel
+% L=16;
 Kg= 3*L;                %gap between OFDM symbol or between OFDM symbol and pilot block
 Nfrm=1;                 % frame
 Nblock=10;              % block per frame
@@ -84,7 +84,7 @@ end
 
 %------------channel--------------
 Npath=2;
-delay=[0.8,2,8];
+delay=[1,2,8];
 ddd=-0.00300;
 doppler=[ddd,ddd,ddd];
 len=8;                                                  %ms
@@ -130,7 +130,7 @@ for nblk=1: 1
 %     figure();
 %     plot(abs(Rx_block(1,:)));
     
-    doppler_scale(nblk)=doppler(1);
+    doppler_scale(nblk)=doppler(1)+0.0010;
     cfo(nblk)=0.01;
     if (strcmp(MMode,'QPSK'))
 %         [doppler_scale(nblk),cfo(nblk)]=D2SearchQPSK(doppler(1)-0.0005,doppler(1)+0.0005,-0,0,1,1,1,sc_idx,Nt,Nr,Ns,K,L,Rx_block,pilot_symbol,block_symbol,SNR,SNRdB,Nbps,B);
@@ -153,7 +153,7 @@ if(1)
 %     y(:,1:L-1)=y(:,1:L-1)+ola(:,1:L-1);
 
     z=fft(yO).';
-    H=OMP(z,Npath,1,B,Ns,K,sc_idx,block_symbol.',-0.000,0.000,0.0001,cfo(nblk));
+    H=OMP(z,Npath,1,B,Ns,K,sc_idx,block_symbol.',-0.001,0.001,0.002,cfo(nblk));
     S_Est=(H\z).';
 
     if (strcmp(MMode,'QPSK'))
