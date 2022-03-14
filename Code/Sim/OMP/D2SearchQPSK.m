@@ -1,5 +1,5 @@
 function [doppler_scale,cfo]=D2SearchQPSK(ald,ahd,alc,ahc,P,u,v,sc_idx,Nt,Nr,Ns,K,L,RX_block,pilot_symbol,block_symbol,SNR,SNRdB,Nbps,B)
-d=[ald:0.00001:ahd];
+d=[ald:0.0001:ahd];
 c=[alc:0.4:ahc];
 % c=alc;(ahc-alc)/2
 ld=length(d);
@@ -47,7 +47,7 @@ for i=1:Nr
 end
 for i=1:Nr
     for n=1:length(RX_block(i,:))
-        RX_block(i,n)=RX_block(i,n)*(exp(sqrt(-1)*2*pi*(ac-13000*ad)*(n-1)/(Ns*B)));%48828.125
+        RX_block(i,n)=RX_block(i,n)*(exp(sqrt(-1)*2*pi*(-ac-13000*ad)*(n-1)/(Ns*B)));%48828.125
     end
 end
 y=RX_block(:,1: Ns: K*Ns);
