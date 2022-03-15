@@ -8,8 +8,8 @@ close all;
 % end
 
 MMode='QPSK';
-K=1024*0.5^0;
-B=9765.625*0.5^0;
+K=1024*0.5^2;
+B=9765.625*0.5^1;
 % K=1024;
 % B=9765.625;
 if(strcmp(MMode,'QPSK'))
@@ -23,7 +23,7 @@ Ns=16;
 T214 = poly2trellis(4,[17 13]); %For convolutional encoder
 tblen=12;               %For convolutional decoder
 rate= 1/2;              %convolutional coding rate
-sc_idx= [1:8:K];        %indices of subcarriers for channel estimation
+sc_idx= [1:4:K];        %indices of subcarriers for channel estimation
 Nbit= K*Nbps*rate;      %number of information bits in one OFDM symbol
 SNRdB= 20;              %signal-to-noise ratio in dB
 SNR= 10^(SNRdB/10);     %SNR in linear scale
