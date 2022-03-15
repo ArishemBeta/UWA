@@ -1,11 +1,14 @@
 clc;
 clear all;
 close all;
-
-% parpool('local',8);
+% parpool('local',16);
+% CoreNum=8; %设定机器CPU核心数量
+% if isempty(gcp('nocreate')) %如果并行未开启
+%     parpool(CoreNum);
+% end
 
 MMode='QPSK';
-K=1024*0.5^3;
+K=1024*0.5^2;
 B=9765.625*0.5^1;
 % K=1024;
 % B=9765.625;
@@ -85,10 +88,10 @@ end
 % plot(Tx_data);
 
 %------------channel--------------
-Npath=2;
+Npath=3;
 delay=[1,3,5];
 % ddd=-0.00300;
-doppler=[-0.00200,-0.00400,-0.00400];
+doppler=[-0.00200,-0.00300,-0.00400];
 len=8;                                                  %ms
 res=0.001;                                               %ms
 UWAchannel=UWAchannel_generation(Npath,Nblock*(K+Kg)/B,1/(Ns*B),len,res,delay,doppler);
@@ -156,7 +159,7 @@ if(1)
 
     z=fft(yO).';
     tic
-    H=OMP(z,Npath,1,B,Ns,K,sc_idx,block_symbol.',-0.001,0.001,0.001,cfo(nblk),L);
+    H=OMP(z,Npath,2,B,Ns,K,sc_idx,block_symbol.',-0.001,0.001,0.001,cfo(nblk),L);
     toc
     S_EstO=(H\z).';
 
@@ -172,6 +175,17 @@ if(1)
     ber_recO(nblk)= ErrNum1/Nbit;
     ber_recrawO(nblk)=ErrNum2/(2*Nbit);
     scatterplot(S_EstO);
+
+    BER_cost_dO=0;
+    symbol_estO=S_EstO;
+    pilot_symbol_estO=symbol_estO(:,sc_idx);
+    symbol_errO=pilot_symbol-pilot_symbol_estO;
+    for nt=1:Nt
+        for k=1:length(sc_idx)
+            BER_cost_dO=BER_cost_dO+(symbol_errO(nt,k)*conj(symbol_errO(nt,k)));
+        end
+    end
+
 end
 
 %-----------原来的方法-------------

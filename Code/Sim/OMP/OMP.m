@@ -19,7 +19,7 @@ for n=1:Namp+1
     Gn=diff(G,n-1);
     for b=1:Nb
         gamma=zeros(K,K);
-        for m=1:K
+        parfor m=1:K
             m
             for k=1:K
 %                 (m-1)*K+k
@@ -86,7 +86,7 @@ end
 H=zeros(K,K);
 for i=1:length(index)
     Gn=diff(G,param(i,1));
-    for m=1:K
+    parfor m=1:K
         for k=1:K
             gamma(m,k)=subs(Gn,'f',(m-k)*B/K+(cfo-param(i,2)*(13000+(m-1-K/2)*B/K))/(1+param(i,2)));
         end
