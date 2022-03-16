@@ -2,11 +2,12 @@ clc;
 clear all;
 close all;
 
-% parpool('local',8);
+% parpool('local',16);
 
 MMode='QPSK';
-K=1024*0.5^0;
+K=1024*0.5^2;
 B=9765.625*0.5^0;
+ifOMP=1;
 % K=1024;
 % B=9765.625;
 
@@ -27,7 +28,7 @@ rate= 1/2;
 sc_idx= [2:8:K];                            % pilot index
 Nbit_s= K*Nbps*rate;                        % bits in an OFDM symbol including null subcarriers
 Nbit_d=Nbit_s*(1-nKr);                      % useful bits in an OFDM symbol
-SNRdB= 10;              
+SNRdB= 20;              
 SNR= 10^(SNRdB/10);
 Lms=8;                                      % length of channel (ms)
 L= min(fix(Lms*B/1000),length(sc_idx));     % length of channel
@@ -89,7 +90,7 @@ end
 Npath=2;
 delay=[1,3,5];
 % ddd=-0.00300;
-doppler=[-0.00200,-0.00200,-0.00400];
+doppler=[-0.00200,-0.00300,-0.002500];
 len=8;                                                  %ms
 res=0.001;                                               %ms
 UWAchannel=UWAchannel_generation(Npath,Nblock*(K+Kg)/B,1/(Ns*B),len,res,delay,doppler);
@@ -141,18 +142,18 @@ for nblk=1: 1
     end
 
 %------------OMP------------
-if(0)
+if(ifOMP)
     yO=Rx_block(:,1: Ns: Ns*K);
 %     ola=Rx_block(:,1+K*Ns: Ns: (K+L-1)*Ns);
 %     y(:,1:L-1)=y(:,1:L-1)+ola(:,1:L-1);
 
     z=fft(yO).';
     tic
-    H=OMP(z,Npath,1,B,Ns,K,sc_idx,block_symbol.',-0.001,0.001,0.001,cfo(nblk),L);
+    H=OMP(z,Npath,2,B,Ns,K,sc_idx,block_symbol.',-0.0005,0.0005,0.0005,cfo(nblk),L);
     toc
     S_EstO=(H\z).';
-    SO=(diag(repmat(sc,1,K/length(sc)))*S_EstO(nt,:).').';
-    SO(find(SO==0))=[];
+    SO=(diag(repmat(sc,1,K/length(sc)))*S_EstO.').';
+    SO(SO==0)=[];
 
     if (strcmp(MMode,'QPSK'))
         Dec_CodBitO= randdeintrlv(demod_qpsk(SO),0);
@@ -165,7 +166,16 @@ if(0)
     ErrNum2=sum(code_bitt(nblk,:)~=Dec_CodBitO);
     ber_recO(nblk)= ErrNum1/(Nbit_d);
     ber_recrawO(nblk)=ErrNum2/(Nbit_d/rate);
-    scatterplot(S_EstO);
+    scatterplot(SO);
+
+    BER_costO=0;
+    pilot_symbol_estO=S_EstO(:,sc_idx);
+    symbol_errO=pilot_symbol-pilot_symbol_estO;
+    for nt=1:Nt
+        for k=1:length(sc_idx)
+            BER_costO=BER_costO+(symbol_errO(nt,k)*conj(symbol_errO(nt,k)));
+        end
+    end
 end
 
 %-----------原来的方法-------------
@@ -184,15 +194,14 @@ end
     elseif (strcmp(MMode,'16QAM'))
         [S_Est LLe_cod]= MIMO_OFDM_SoftEqu_16qam_fn_31may11(y,LLa_cod,h,K,Ns,L,Nt,Nr,Nbps,SNRdB);
     end
-%     scatterplot(S_Est);
     S_Est_Iter= S_Est;%((k-1)*Nt+1: k*Nt,:)
 
-    BER_cost_d=0;
+    BER_cost=0;
     pilot_symbol_est=S_Est(:,sc_idx);
     symbol_err=pilot_symbol-pilot_symbol_est;
     for nt=1:Nt
         for k=1:length(sc_idx)
-            BER_cost_d=BER_cost_d+(symbol_err(nt,k)*conj(symbol_err(nt,k)));
+            BER_cost=BER_cost+(symbol_err(nt,k)*conj(symbol_err(nt,k)));
         end
     end
 
