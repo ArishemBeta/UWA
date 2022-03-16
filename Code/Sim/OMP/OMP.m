@@ -1,14 +1,12 @@
 function H=OMP(z,Npa,Namp,B,Ns,K,sc_idx,block_symbol,bmin,bmax,dbeta,cfo,L)
 sparsity=Npa*(Namp+1);
-t=zeros(1,K);
-t(sc_idx)=1;
-t(max(sc_idx-1,1))=1;
-t(sc_idx+1)=1;
+t=ones(1,K);
+t(sc_idx+2)=0;
 selector=zeros(K,K);
 selector(logical(eye(size(selector))))=t;
 zp=selector*z;
 sp=selector*block_symbol;
-delay_hat=[0:1/(B*2):L/B-1/(B)];
+delay_hat=[0:1/(B):L/B-1/(B)];
 beta=[bmin:dbeta:bmax];
 % beta=-0.0010;
 Np=length(delay_hat);                             %----------Np-----------
@@ -21,7 +19,7 @@ for n=1:Namp+1
     Gn=diff(G,n-1);
     for b=1:Nb
         gamma=zeros(K,K);
-        parfor m=1:K
+        for m=1:K
             m
             for k=1:K
 %                 (m-1)*K+k
@@ -88,7 +86,7 @@ end
 H=zeros(K,K);
 for i=1:length(index)
     Gn=diff(G,param(i,1));
-    parfor m=1:K
+    for m=1:K
         for k=1:K
             gamma(m,k)=subs(Gn,'f',(m-k)*B/K+(cfo-param(i,2)*(13000+(m-1-K/2)*B/K))/(1+param(i,2)));
         end
