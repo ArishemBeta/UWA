@@ -31,18 +31,18 @@ for n=1:Namp+1
         for d=1:D+1
             if(d==1)
                 for m=d:K-d+1
-                    gamma(m,m)=subs(Gn,'f',0*B/K+(cfo-beta(b)*(13000+(m-1-K/2)/T))/(1+beta(b)));
+                    gamma(m,m)=subs(Gn,'f',0*B/K+(cfo-beta(b)*(13000+(m-1-K/2)*B/K))/(1+beta(b)));
                 end
             else
                 for m=d:K-d+1
-                    gamma(m,m+d-1)=subs(Gn,'f',(1-d)/T+(cfo-beta(b)*(13000+(m-1-K/2)/T))/(1+beta(b)));
-                    gamma(m+d-1,m)=subs(Gn,'f',(d-1)/T+(cfo-beta(b)*(13000+(m-1-K/2)/T))/(1+beta(b)));
+                    gamma(m,m+d-1)=subs(Gn,'f',(1-d)*B/K+(cfo-beta(b)*(13000+(m-1-K/2)*B/K))/(1+beta(b)));
+                    gamma(m+d-1,m)=subs(Gn,'f',(d-1)*B/K+(cfo-beta(b)*(13000+(m-1-K/2)*B/K))/(1+beta(b)));
                 end
             end
         end
         for p=1:Np
             (n-1)*Np*Nb+(b-1)*Np+p
-            A(:,(n-1)*Np*Nb+(b-1)*Np+p)=diag(exp(-sqrt(-1)*2*pi*delay_hat(p)/T*[-K/2:K/2-1]))...
+            A(:,(n-1)*Np*Nb+(b-1)*Np+p)=diag(exp(-sqrt(-1)*2*pi*delay_hat(p)*B/K*[-K/2:K/2-1]))...
                 *gamma...
                 *sp;
         end
@@ -110,16 +110,16 @@ for i=1:length(index)
     for d=1:D+1
         if(d==1)
             for m=d:K-d+1
-                gamma(m,m)=subs(Gn,'f',(cfo-param(i,2)*(13000+(m-1-K/2)/T))/(1+param(i,2)));
+                gamma(m,m)=subs(Gn,'f',0*B/K+(cfo-param(i,2)*(13000+(m-1-K/2)*B/K))/(1+param(i,2)));
             end
         else
             for m=d:K-d+1
-                gamma(m,m+d-1)=subs(Gn,'f',(1-d)/T+(cfo-param(i,2)*(13000+(m-1-K/2)/T))/(1+param(i,2)));
-                gamma(m+d-1,m)=subs(Gn,'f',(d-1)/T+(cfo-param(i,2)*(13000+(m-1-K/2)/T))/(1+param(i,2)));
+                gamma(m,m+d-1)=subs(Gn,'f',(1-d)*B/K+(cfo-param(i,2)*(13000+(m-1-K/2)*B/K))/(1+param(i,2)));
+                gamma(m+d-1,m)=subs(Gn,'f',(d-1)*B/K+(cfo-param(i,2)*(13000+(m-1-K/2)*B/K))/(1+param(i,2)));
             end
         end
     end
-    H=H+xind(i)*diag(exp(-sqrt(-1)*2*pi*param(i,3)/T*[-K/2:K/2-1]))*gamma;
+    H=H+xind(i)*diag(exp(-sqrt(-1)*2*pi*param(i,3)*B/K*[-K/2:K/2-1]))*gamma;
 end
 figure();
 image(abs(H),'CDataMapping','scaled');
