@@ -2,10 +2,10 @@ clc;
 clear all;
 close all;
 
-% parpool('local',8);
+% parpool('local',16);
 
 MMode='QPSK';
-K=1024*0.5^0;
+K=1024*0.5^2;
 B=9765.625*0.5^0;
 ifOMP=1;
 % K=1024;
@@ -73,7 +73,7 @@ end
 % scatterplot(data_sym(:,1));
 
 %------------IFFT--------------
-ifft_data=sqrt(height(Tx_sym_ins))*ifft(Tx_sym_ins);
+ifft_data=ifft(Tx_sym_ins);
 
 %------------ZP--------------
 Tx_block=[ifft_data;zeros(Kg*Ns,Nfrm*Nblock)];
@@ -87,14 +87,13 @@ for i=1:length(Tx_data)
 end
 
 %------------channel--------------
-Npath=3;
-delay=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16];
+Npath=2;
+delay=[1,3,5];
 % ddd=-0.00300;
-doppler=[-0.00200,-0.00300,-0.00400,-0.00300,-0.00200,-0.00200,-0.00200,-0.00000,...
-    -0.00000,-0.00000,-0.00000,-0.00000,-0.00000,-0.00000,-0.00000,-0.00000];
+doppler=[-0.00200,-0.00300,-0.002500];
 len=8;                                                  %ms
 res=0.001;                                               %ms
-UWAchannel=UWAchannel_generation(Npath,Nblock*(K+Kg)/B,1/(Ns*B),len,res,delay(1:Npath),doppler(1:Npath));
+UWAchannel=UWAchannel_generation(Npath,Nblock*(K+Kg)/B,1/(Ns*B),len,res,delay,doppler);
 Rx_data=zeros(1,Nblock*(K+Kg)*Ns+L*Ns);
 for t=1:height(UWAchannel)
     for p=1:Npath
@@ -106,9 +105,7 @@ for t=1:height(UWAchannel)
         end
     end
 end
-Rx_datat=awgn(Rx_data,SNRdB,'measured');
-noise=Rx_datat-Rx_data;
-N0=sum(abs(noise).^2)/length(noise);
+Rx_data=awgn(Rx_data,SNRdB,'measured');
 
 %------------转基带-----------
 for i=1:length(Rx_data)
@@ -150,13 +147,11 @@ if(ifOMP)
 %     ola=Rx_block(:,1+K*Ns: Ns: (K+L-1)*Ns);
 %     y(:,1:L-1)=y(:,1:L-1)+ola(:,1:L-1);
 
-    z=(fft(yO)./sqrt(length(yO))).';
-%     z=fft(yO).';
+    z=fft(yO).';
     tic
-    H=OMP(z,Npath,1,B,Ns,K,sc_idx,block_symbol.',-0.0001,0.0001,0.0001,cfo(nblk),L,1);
+    H=OMP(z,Npath,2,B,Ns,K,sc_idx,block_symbol.',-0.0005,0.0005,0.0005,cfo(nblk),L);
     toc
-%     S_EstO=(H\z).';
-    S_EstO=((H'*H+N0*eye(K))\H'*z).';
+    S_EstO=(H\z).';
     SO=(diag(repmat(sc,1,K/length(sc)))*S_EstO.').';
     SO(SO==0)=[];
 
@@ -174,13 +169,13 @@ if(ifOMP)
     scatterplot(SO);
 
     BER_costO=0;
-    symbol_errO=data_sym_t(:,nblk).'-SO;
+    pilot_symbol_estO=S_EstO(:,sc_idx);
+    symbol_errO=pilot_symbol-pilot_symbol_estO;
     for nt=1:Nt
-        for k=1:length(symbol_errO)
+        for k=1:length(sc_idx)
             BER_costO=BER_costO+(symbol_errO(nt,k)*conj(symbol_errO(nt,k)));
         end
     end
-
 end
 
 %-----------原来的方法-------------
@@ -199,8 +194,16 @@ end
     elseif (strcmp(MMode,'16QAM'))
         [S_Est LLe_cod]= MIMO_OFDM_SoftEqu_16qam_fn_31may11(y,LLa_cod,h,K,Ns,L,Nt,Nr,Nbps,SNRdB);
     end
-%     scatterplot(S_Est);
     S_Est_Iter= S_Est;%((k-1)*Nt+1: k*Nt,:)
+
+    BER_cost=0;
+    pilot_symbol_est=S_Est(:,sc_idx);
+    symbol_err=pilot_symbol-pilot_symbol_est;
+    for nt=1:Nt
+        for k=1:length(sc_idx)
+            BER_cost=BER_cost+(symbol_err(nt,k)*conj(symbol_err(nt,k)));
+        end
+    end
 
 %     for nt= 1: Nt
 %         LLe_cod((nt-1)*2+1,:)= randdeintrlv(LLe_cod((nt-1)*2+1,:), 0); %interleaving before delivering to equalizer
@@ -219,15 +222,6 @@ end
         S=(diag(repmat(sc,1,K/length(sc)))*S_Est(nt,:).').';
         S(find(S==0))=[];
         scatterplot(S);
-
-        BER_cost=0;
-        symbol_err=data_sym_t(:,nblk).'-S;
-        for nt=1:Nt
-            for k=1:length(symbol_err)
-                BER_cost=BER_cost+(symbol_err(nt,k)*conj(symbol_err(nt,k)));
-            end
-        end
-
         if (strcmp(MMode,'QPSK'))
             Dec_CodBit= randdeintrlv(demod_qpsk(S),0);
         elseif (strcmp(MMode,'16QAM'))
