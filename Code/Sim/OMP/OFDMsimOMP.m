@@ -5,8 +5,8 @@ close all;
 % parpool('local',8);
 
 MMode='QPSK';
-K=1024*0.5^1;
-B=9765.625*0.5^1;
+K=1024*0.5^0;
+B=9765.625*0.5^0;
 ifOMP=1;
 % K=1024;
 % B=9765.625;
@@ -28,7 +28,7 @@ rate= 1/2;
 sc_idx= [2:8:K];                            % pilot index
 Nbit_s= K*Nbps*rate;                        % bits in an OFDM symbol including null subcarriers
 Nbit_d=Nbit_s*(1-nKr);                      % useful bits in an OFDM symbol
-SNRdB= 20;              
+SNRdB= 10;              
 SNR= 10^(SNRdB/10);
 Lms=8;                                      % length of channel (ms)
 L= min(fix(Lms*B/1000),length(sc_idx));     % length of channel
@@ -85,15 +85,15 @@ Tx_data=reshape(Tx_block,[],1).';
 for i=1:length(Tx_data)
     Tx_data(i)=real(Tx_data(i)*(exp(sqrt(-1)*2*pi*13000*(i-1)/(B*Ns))));%
 end
-
+        
 %------------channel--------------
-Npath=3;
-delay=[1,3,5,4,5,6,7,8,9,10,11,12,13,14,15,16];
+Npath=6;
+delay=[1,3,5,7,5,6,7,8,9,10,11,12,13,14,15,16];
 % ddd=-0.00300;
-doppler=[-0.00200,-0.00300,-0.00400,-0.00300,-0.00200,-0.00200,-0.00200,-0.00000,...
+doppler=[-0.000200,-0.0002500,-0.000300,-0.000350,-0.000400,-0.000300,-0.00200,-0.00000,...
     -0.00000,-0.00000,-0.00000,-0.00000,-0.00000,-0.00000,-0.00000,-0.00000];
-len=8;                                                  %ms
-res=0.01;                                               %ms
+len=8;                                                      %ms
+res=0.01;                                                   %ms
 UWAchannel=UWAchannel_generation(Npath,Nblock*(K+Kg)/B,1/(Ns*B),len,res,delay(1:Npath),doppler(1:Npath));
 Rx_data=zeros(1,Nblock*(K+Kg)*Ns+L*Ns);
 for t=1:height(UWAchannel)
@@ -112,7 +112,7 @@ N0=sum(abs(noise).^2)/length(noise);
 
 %------------转基带-----------
 for i=1:length(Rx_data)
-    Rx_data(i)=Rx_data(i)*(exp(sqrt(-1)*2*pi*(-13000)*(i-1)/(B*Ns)));%
+    Rx_data(i)=Rx_data(i)*(exp(sqrt(-1)*2*pi*(-13000)*(i-1)/(B*Ns)));
 end
 Rx_data=lowpass(Rx_data,B*0.5,B*Ns);
 
@@ -121,7 +121,7 @@ doppler_scale=zeros(1,Nblock);
 cfo=zeros(1,Nblock);
 for nblk=1: 1
     nblk
-    Noffset=(nblk-1)*(K+Kg)-floor(doppler_scale(max(1,nblk-1))*(K+Kg)*(nblk-1)); %
+    Noffset=(nblk-1)*(K+Kg)-floor(doppler_scale(max(1,nblk-1))*(K+Kg)*(nblk-1));
     Gap=Ns*Noffset;
     block_symbol=Tx_sym(:,nblk).';
     pilot_symbol=block_symbol(sc_idx);
@@ -133,7 +133,7 @@ for nblk=1: 1
     if (strcmp(MMode,'QPSK'))
 %         [doppler_scale(nblk),cfo(nblk)]=D2SearchQPSK(doppler(1)-0.001,doppler(1)+0.001,-2,2,1,1,1,sc_idx,Nt,Nr,Ns,K,L,Rx_block,pilot_symbol,block_symbol,SNR,SNRdB,Nbps,B);
     elseif (strcmp(MMode,'16QAM'))
-        [doppler_scale(nblk),cfo(nblk)]=D2SearchQAM(-0.0031,-0.0029,0,0,1,1,1,sc_idx,Nt,Nr,Ns,K,L,Rx_block,pilot_symbol,block_symbol,SNR,SNRdB,Nbps,B);
+%         [doppler_scale(nblk),cfo(nblk)]=D2SearchQAM(-0.0031,-0.0029,0,0,1,1,1,sc_idx,Nt,Nr,Ns,K,L,Rx_block,pilot_symbol,block_symbol,SNR,SNRdB,Nbps,B);
     end
     for i=1:Nr
         Rx_block(i,:)=interp1((0:length(Rx_block(i,:))-1),Rx_block(i,:),(0:length(Rx_block(i,:))-1)/(1+doppler_scale(nblk)),'spline');
@@ -153,7 +153,7 @@ if(ifOMP)
     z=(fft(yO)./sqrt(length(yO))).';
 %     z=fft(yO).';
     tic
-    H=OMP(z,Npath,0,B,Ns,K,sc_idx,block_symbol.',-0.001,0.001,0.001,cfo(nblk),L,2);
+    H=OMP(z,Npath,0,B,Ns,K,sc_idx,block_symbol.',-0.0001,0.0001,0.00005,cfo(nblk),L,0);
     toc
 %     S_EstO=(H\z).';
     S_EstO=((H'*H+N0*eye(K))\H'*z).';

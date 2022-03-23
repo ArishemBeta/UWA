@@ -49,8 +49,9 @@ k=1;
 r=zp;
 cor=A'*r;
 coro=sum(abs(cor));
-% while sum(abs(cor))>0.7*coro
-while k<=sparsity*10
+while sum(abs(cor))>0.1*coro
+% while k<=sparsity*10
+    if(k>Nb*Np*(Namp+1)) break; end;
     [Rm,ind]=max(abs(cor));
     index=[index ind];
 %     P=A(:,index)*inv(A(:,index)'*A(:,index))*A(:,index)';
@@ -59,15 +60,16 @@ while k<=sparsity*10
     cor=A'*r;
     k=k+1;
 end
-At=A(:,index);
+sum(abs(cor))
+k
 xind=(A(:,index)'*A(:,index))\A(:,index)'*zp;
 xi(index)=xind;
 
 pos=zeros(length(index),3);
-param=zeros(length(index),3);
+param=zeros(length(index),5);
 for i=1:length(index)
-    pos(i,1)=fix(index(i)/(Np*Nb))+1;                 %Namp
-    pos(i,2)=fix((index(i)-Np*Nb*(pos(i,1)-1))/Np)+1;     %Nb
+    pos(i,1)=fix(index(i)/(Np*Nb))+1;                       %Namp
+    pos(i,2)=fix((index(i)-Np*Nb*(pos(i,1)-1))/Np)+1;       %Nb
     pos(i,3)=index(i)-Np*Nb*(pos(i,1)-1)-Np*(pos(i,2)-1);   %Np
     if(pos(i,3)==0)
         pos(i,3)=Np;
@@ -80,27 +82,67 @@ for i=1:length(index)
     param(i,1)=pos(i,1)-1;
     param(i,2)=beta(pos(i,2));
     param(i,3)=delay_hat(pos(i,3));
-
 end
+param(:,4)=index.';
+param(:,5)=(1:height(param)).';
+param=sortrows(param,1);
+param=sortrows(param,2);
 
 H=zeros(K,K);
-for i=1:length(index)
-    Gn=diff(G,param(i,1));
-    gamma=zeros(K,K);
-    for d=1:D+1
-        if(d==1)
-            for m=1:K
-                gamma(m,m)=subs(Gn,'f',(cfo-param(i,2)*(13000+(m-1-K/2)/T))/(1+param(i,2)));
-            end
-        else
-            for m=1:K-d+1
-                gamma(m,m+d-1)=subs(Gn,'f',(1-d)/T+(cfo-param(i,2)*(13000+(m-1-K/2)/T))/(1+param(i,2)));
-                gamma(m+d-1,m)=subs(Gn,'f',(d-1)/T+(cfo-param(i,2)*(13000+(m-1-K/2)/T))/(1+param(i,2)));
+Gn=diff(G,param(1,1));
+gamma=zeros(K,K);
+for d=1:D+1
+    if(d==1)
+        for m=1:K
+            gamma(m,m)=subs(Gn,'f',(cfo-param(1,2)*(13000+(m-1-K/2)/T))/(1+param(1,2)));
+        end
+    else
+        for m=1:K-d+1
+            gamma(m,m+d-1)=subs(Gn,'f',(1-d)/T+(cfo-param(1,2)*(13000+(m-1-K/2)/T))/(1+param(1,2)));
+            gamma(m+d-1,m)=subs(Gn,'f',(d-1)/T+(cfo-param(1,2)*(13000+(m-1-K/2)/T))/(1+param(1,2)));
+        end
+    end
+end
+
+for i=1:height(param)
+    if((i>1)&&(param(i,1)~=param(i-1,1)))
+%         Gn=diff(G,param(i,1));
+        Gn=diff(Gn,1);
+    end
+    if((i>1)&&(param(i,2)~=param(i-1,2)))
+        for d=1:D+1
+            if(d==1)
+                for m=1:K
+                    gamma(m,m)=subs(Gn,'f',(cfo-param(i,2)*(13000+(m-1-K/2)/T))/(1+param(i,2)));
+                end
+            else
+                for m=1:K-d+1
+                    gamma(m,m+d-1)=subs(Gn,'f',(1-d)/T+(cfo-param(i,2)*(13000+(m-1-K/2)/T))/(1+param(i,2)));
+                    gamma(m+d-1,m)=subs(Gn,'f',(d-1)/T+(cfo-param(i,2)*(13000+(m-1-K/2)/T))/(1+param(i,2)));
+                end
             end
         end
     end
-    H=H+xind(i)*diag(exp(-sqrt(-1)*2*pi*param(i,3)/T*[-K/2:K/2-1]))*gamma;
+    H=H+xind(param(i,5))*diag(exp(-sqrt(-1)*2*pi*param(i,3)/T*[-K/2:K/2-1]))*gamma;
 end
+
+% for i=1:length(index)
+%     Gn=diff(G,param(i,1));
+%     gamma=zeros(K,K);
+%     for d=1:D+1
+%         if(d==1)
+%             for m=1:K
+%                 gamma(m,m)=subs(Gn,'f',(cfo-param(i,2)*(13000+(m-1-K/2)/T))/(1+param(i,2)));
+%             end
+%         else
+%             for m=1:K-d+1
+%                 gamma(m,m+d-1)=subs(Gn,'f',(1-d)/T+(cfo-param(i,2)*(13000+(m-1-K/2)/T))/(1+param(i,2)));
+%                 gamma(m+d-1,m)=subs(Gn,'f',(d-1)/T+(cfo-param(i,2)*(13000+(m-1-K/2)/T))/(1+param(i,2)));
+%             end
+%         end
+%     end
+%     H=H+xind(i)*diag(exp(-sqrt(-1)*2*pi*param(i,3)/T*[-K/2:K/2-1]))*gamma;
+% end
 figure();
 image(abs(H),'CDataMapping','scaled');
 colorbar;
