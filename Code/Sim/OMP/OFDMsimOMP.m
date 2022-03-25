@@ -4,7 +4,7 @@ close all;
 
 % parpool('local',8);
 
-MMode='16QAM';
+MMode='QPSK';
 K=1024*0.5^0;
 B=9765.625*0.5^0;
 ifOMP=1;
@@ -59,7 +59,7 @@ end
 
 %------------频域插零----------
 [Tx_sym_ins, Tx_sym]=Txsymbol_arrangement(data_sym_t,K,sc,Ns);
-scatterplot(data_sym_t(:,1));
+% scatterplot(data_sym_t(:,1));
 
 %------------IFFT--------------
 ifft_data=sqrt(height(Tx_sym_ins))*ifft(Tx_sym_ins);
@@ -76,10 +76,11 @@ for i=1:length(Tx_data)
 end
         
 %------------channel--------------
-Npath=2;
-delay=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16];
-doppler=[-0.002000,-0.00200,-0.00200,-0.00000,-0.00000,-0.000300,-0.00200,-0.00000,...
-    -0.00000,-0.00000,-0.00000,-0.00000,-0.00000,-0.00000,-0.00000,-0.00000];
+Npath=8;
+delay=[1,2.5,4,5,6,7,8,9,9,10,11,12,13,14,15,16];
+% doppler=[-0.002000,-0.002050,-0.00190,-0.001950,-0.00205000,-0.002100,-0.00200,-0.00000,...
+%     -0.00000,-0.00000,-0.00000,-0.00000,-0.00000,-0.00000,-0.00000,-0.00000];
+doppler=-3./(1500+randperm(61,Npath)-31);
 len=8;                                                      %ms
 res=0.01;                                                   %ms
 UWAchannel=UWAchannel_generation(Npath,Nblock*(K+Kg)/B,1/(Ns*B),len,res,delay(1:Npath),doppler(1:Npath));
@@ -144,7 +145,7 @@ if(ifOMP)
 
     z=(fft(yO)./sqrt(length(yO))).';
     tic
-    H=OMP(z,Npath,0,B,Ns,K,sc_idx,block_symbol.',-0.000,0.000,0.001,cfo(nblk),L,2);
+    H=OMP(z,Npath,0,B,Ns,K,sc_idx,block_symbol.',-0.00004,0.00004,0.00001,cfo(nblk),L,0);
     toc
     S_EstO=((H'*H+N0*eye(K))\H'*z).';
     SO=(diag(repmat(sc,1,K/length(sc)))*S_EstO.').';

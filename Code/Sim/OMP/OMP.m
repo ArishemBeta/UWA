@@ -49,7 +49,7 @@ k=1;
 r=zp;
 cor=A'*r;
 coro=sum(abs(cor));
-while sum(abs(cor))>0.1*coro
+while sum(abs(cor))>0.1
 % while k<=sparsity*10
     if(k>Nb*Np*(Namp+1)) break; end;
     [Rm,ind]=max(abs(cor));

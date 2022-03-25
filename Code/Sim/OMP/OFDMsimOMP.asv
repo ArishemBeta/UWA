@@ -28,7 +28,7 @@ rate= 1/2;
 sc_idx= [2:8:K];                            % pilot index
 Nbit_s= K*Nbps*rate;                        % bits in an OFDM symbol including null subcarriers
 Nbit_d=Nbit_s*(1-nKr);                      % useful bits in an OFDM symbol
-SNRdB= 30;              
+SNRdB= 10;              
 SNR= 10^(SNRdB/10);
 Lms=8;                                      % length of channel (ms)
 L= min(fix(Lms*B/1000),length(sc_idx));     % length of channel
@@ -59,7 +59,7 @@ end
 
 %------------频域插零----------
 [Tx_sym_ins, Tx_sym]=Txsymbol_arrangement(data_sym_t,K,sc,Ns);
-scatterplot(data_sym_t(:,1));
+% scatterplot(data_sym_t(:,1));
 
 %------------IFFT--------------
 ifft_data=sqrt(height(Tx_sym_ins))*ifft(Tx_sym_ins);
@@ -76,10 +76,12 @@ for i=1:length(Tx_data)
 end
         
 %------------channel--------------
-Npath=1;
-delay=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16];
-doppler=[-0.002000,-0.00200,-0.00200,-0.00000,-0.00000,-0.000300,-0.00200,-0.00000,...
-    -0.00000,-0.00000,-0.00000,-0.00000,-0.00000,-0.00000,-0.00000,-0.00000];
+Npath=8;
+delay=[1,2.5,4,5,6,7,8,9,9,10,11,12,13,14,15,16];
+% doppler=[-0.002000,-0.002050,-0.00190,-0.001950,-0.00205000,-0.002100,-0.00200,-0.00000,...
+%     -0.00000,-0.00000,-0.00000,-0.00000,-0.00000,-0.00000,-0.00000,-0.00000];
+doppler=zeros(1,Npath);
+
 len=8;                                                      %ms
 res=0.01;                                                   %ms
 UWAchannel=UWAchannel_generation(Npath,Nblock*(K+Kg)/B,1/(Ns*B),len,res,delay(1:Npath),doppler(1:Npath));
@@ -144,7 +146,7 @@ if(ifOMP)
 
     z=(fft(yO)./sqrt(length(yO))).';
     tic
-    H=OMP(z,Npath,0,B,Ns,K,sc_idx,block_symbol.',-0.001,0.001,0.001,cfo(nblk),L,2);
+    H=OMP(z,Npath,0,B,Ns,K,sc_idx,block_symbol.',-0.0001,0.0001,0.00005,cfo(nblk),L,6);
     toc
     S_EstO=((H'*H+N0*eye(K))\H'*z).';
     SO=(diag(repmat(sc,1,K/length(sc)))*S_EstO.').';
