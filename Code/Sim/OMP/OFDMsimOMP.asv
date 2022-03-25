@@ -4,7 +4,7 @@ close all;
 
 % parpool('local',8);
 
-MMode='QPSK';
+MMode='16QAM';
 K=1024*0.5^0;
 B=9765.625*0.5^0;
 ifOMP=1;
@@ -28,11 +28,10 @@ rate= 1/2;
 sc_idx= [2:8:K];                            % pilot index
 Nbit_s= K*Nbps*rate;                        % bits in an OFDM symbol including null subcarriers
 Nbit_d=Nbit_s*(1-nKr);                      % useful bits in an OFDM symbol
-SNRdB= 10;              
+SNRdB= 30;              
 SNR= 10^(SNRdB/10);
 Lms=8;                                      % length of channel (ms)
 L= min(fix(Lms*B/1000),length(sc_idx));     % length of channel
-% L=16;
 Kg= 3*L;                                    % guard gap
 Nfrm=1;                                     % frame
 Nblock=10;                                  % block per frame
@@ -59,18 +58,8 @@ elseif (strcmp(MMode,'16QAM'))
 end
 
 %------------频域插零----------
-% data_sym=data_sym_t;
-% data_sym=zeros(K*Ns,Nblock);
-% for i=1:Nblock
-%     for j=1:K/2
-%         data_sym(j,i)=data_sym_t(j,i);
-%     end
-%     for j=K/2+1:K
-%         data_sym(j+(Ns-1)*K,i)=data_sym_t(j,i);
-%     end
-% end
 [Tx_sym_ins, Tx_sym]=Txsymbol_arrangement(data_sym_t,K,sc,Ns);
-% scatterplot(data_sym(:,1));
+scatterplot(data_sym_t(:,1));
 
 %------------IFFT--------------
 ifft_data=sqrt(height(Tx_sym_ins))*ifft(Tx_sym_ins);
@@ -87,10 +76,9 @@ for i=1:length(Tx_data)
 end
         
 %------------channel--------------
-Npath=4;
-delay=[1,3,5,7,5,6,7,8,9,10,11,12,13,14,15,16];
-% ddd=-0.00300;
-doppler=[-0.000200,-0.0002300,-0.000240,-0.000280,-0.000300,-0.000300,-0.00200,-0.00000,...
+Npath=1;
+delay=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16];
+doppler=[-0.002000,-0.00200,-0.00200,-0.00000,-0.00000,-0.000300,-0.00200,-0.00000,...
     -0.00000,-0.00000,-0.00000,-0.00000,-0.00000,-0.00000,-0.00000,-0.00000];
 len=8;                                                      %ms
 res=0.01;                                                   %ms
@@ -128,8 +116,8 @@ for nblk=1: 1
     block_bit=bit_seq(:,nblk).';
     Rx_block=Rx_data(:,Gap+1:Gap+round((K+Kg)*Ns));%/(1-0.005)                             5~0.0005    30~0.003
     
-    doppler_scale(nblk)=mean(doppler(1:Npath));
-    cfo(nblk)=0.1;
+    doppler_scale(nblk)=doppler(1);
+%     cfo(nblk)=0.2;%(-doppler_scale(nblk)+doppler(1))*13000+rand()-0.5;
     if (strcmp(MMode,'QPSK'))
 %         [doppler_scale(nblk),cfo(nblk)]=D2SearchQPSK(doppler(1)-0.001,doppler(1)+0.001,-2,2,1,1,1,sc_idx,Nt,Nr,Ns,K,L,Rx_block,pilot_symbol,block_symbol,SNR,SNRdB,Nbps,B);
     elseif (strcmp(MMode,'16QAM'))
@@ -137,10 +125,14 @@ for nblk=1: 1
     end
     for i=1:Nr
         Rx_block(i,:)=interp1((0:length(Rx_block(i,:))-1),Rx_block(i,:),(0:length(Rx_block(i,:))-1)/(1+doppler_scale(nblk)),'spline');
+        for n=1:length(Rx_block(i,:))
+            Rx_block(i,n)=Rx_block(i,n)*(exp(sqrt(-1)*2*pi*(-13000*doppler_scale(nblk))*(n-1)/(B*Ns)));%48828.125
+        end
     end
+    cfo=cfo_nullsubcarrier([-20:20],Rx_block,K,sc,B,Ns)+rand()-1;
     for i=1:Nr
         for n=1:length(Rx_block(i,:))
-            Rx_block(i,n)=Rx_block(i,n)*(exp(sqrt(-1)*2*pi*(-cfo(nblk)-13000*doppler_scale(nblk))*(n-1)/(B*Ns)));%48828.125
+            Rx_block(i,n)=Rx_block(i,n)*(exp(sqrt(-1)*2*pi*(-cfo(nblk))*(n-1)/(B*Ns)));%48828.125
         end
     end
 
@@ -151,11 +143,9 @@ if(ifOMP)
     yO(:,1:L-1)=yO(:,1:L-1)+olaO(:,1:L-1);
 
     z=(fft(yO)./sqrt(length(yO))).';
-%     z=fft(yO).';
     tic
-    H=OMP(z,Npath,0,B,Ns,K,sc_idx,block_symbol.',-0.00005,0.00005,0.00002,cfo(nblk),L,2);
+    H=OMP(z,Npath,0,B,Ns,K,sc_idx,block_symbol.',-0.001,0.001,0.001,cfo(nblk),L,2);
     toc
-%     S_EstO=(H\z).';
     S_EstO=((H'*H+N0*eye(K))\H'*z).';
     SO=(diag(repmat(sc,1,K/length(sc)))*S_EstO.').';
     SO(SO==0)=[];
@@ -172,6 +162,7 @@ if(ifOMP)
     ber_recO(nblk)= ErrNum1/(Nbit_d);
     ber_recrawO(nblk)=ErrNum2/(Nbit_d/rate);
     scatterplot(SO);
+    title('OMP信道估计',FontSize=20);
 
     BER_costO=0;
     symbol_errO=data_sym_t(:,nblk).'-SO;
@@ -199,7 +190,6 @@ end
     elseif (strcmp(MMode,'16QAM'))
         [S_Est LLe_cod]= MIMO_OFDM_SoftEqu_16qam_fn_31may11(y,LLa_cod,h,K,Ns,L,Nt,Nr,Nbps,SNRdB);
     end
-%     scatterplot(S_Est);
     S_Est_Iter= S_Est;%((k-1)*Nt+1: k*Nt,:)
 
 %     for nt= 1: Nt
@@ -219,6 +209,7 @@ end
         S=(diag(repmat(sc,1,K/length(sc)))*S_Est(nt,:).').';
         S(find(S==0))=[];
         scatterplot(S);
+        title('LS信道估计',FontSize=20);
 
         BER_cost=0;
         symbol_err=data_sym_t(:,nblk).'-S;
