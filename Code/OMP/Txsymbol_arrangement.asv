@@ -1,0 +1,32 @@
+function Tx_sym=Txsymbol_arrangement(data_sym,K,sc,Ns)
+l=length(sc);
+g=K/l;
+Tx_sym_t=zeros(K,width(data_sym));
+Tx_sym=zeros(K*Ns,width(data_sym));
+p=1;
+
+for i=1:g
+    for j=1:l
+        if((i-1)*l+j<K/2)
+            if(sc(j)==1)
+                Tx_sym_t((i-1)*l+j,:)=data_sym(p,:);
+                p=p+1;
+            end
+        end
+        if((i-1)*l+j>K/2)
+            if(sc(j)==1)
+                Tx_sym_t((i-1)*l+j,:)=data_sym(p,:);
+                p=p+1;
+            end
+        end
+    end
+end
+
+for i=1:K/2-1
+    Tx_sym(i,:)=Tx_sym_t(i,:);
+end
+for i=K/2:K
+    Tx_sym(i+(Ns-1)*K,:)=Tx_sym_t(i,:);
+end
+
+return
