@@ -26,11 +26,11 @@ Nbit= K*Nbps*rate;      %number of information bits in one OFDM symbol
 Nrepeat= 12;            %number of OFDM symbols in each packet
 SNRdB= 10;              %signal-to-noise ratio in dB
 SNR= 10^(SNRdB/10);     %SNR in linear scale
-L= 100;                 %length of channel
+L= 80;                 %length of channel
 
 % Chnn_idx=[1];                              %01 phone
-% Chnn_idx=[1 2];                              %02 phones
-Chnn_idx=[1 3 5 7];                        %04 phones
+Chnn_idx=[1 2];                              %02 phones
+% Chnn_idx=[1 3 5 7];                        %04 phones
 % Chnn_idx=[1 2 3 6 7 8];                    %06 phones
 %  Chnn_idx=[1 2 3 4 5 6 7 8];               %08 phones
 Nr= length(Chnn_idx);
@@ -132,14 +132,16 @@ for packet_idx= [1] %[1 2 3 4 5 6 8 11 14 20 23 26 29 32]
             H=zeros(K*Nr,K);
             tic
             for i=1:Nr
-                H((i-1)*K+1:i*K,:)=OMP(z(:,i),0,Fb,K,sc_idx,block_symbol.',-0.00005,0.00005,0.00002,-rand()+0.5,L,2);
+                H((i-1)*K+1:i*K,:)=OMP(z(:,i),0,Fb,K,sc_idx,block_symbol.',-0.00003,0.00003,0.00001,-rand()+0.5,L,3);
             end
             toc
 %-------------均衡--------------
             %  S_EstO=((H'*H+N0*eye(K))\H'*z).';
             P=sum(sum(abs(RX_block).^2))/(K*Nr*Ns);
             N0=P/(1+SNR);
+%             tic
             S_EstO=SIMO_LMMSE_Equalization(reshape(z,1,K*Nr),H,K,[1,1,1,1],Nr,Nt,'QPSK',0,N0);
+%             toc
             SO=S_EstO.';
 
             Dec_CodBitO= randdeintrlv(demod_qpsk(SO),0);
@@ -147,7 +149,7 @@ for packet_idx= [1] %[1 2 3 4 5 6 8 11 14 20 23 26 29 32]
             Decod_InfoBitO= vitdec(Dec_CodBitO,T214,tblen,'cont','hard');
             Decod_InfoBitO= Decod_InfoBitO(tblen+1: Nbit);
             ErrNum1= sum(block_bit(1: Nbit-tblen)~=Decod_InfoBitO);
-            ErrNum2=sum(CodBit(nblk,:)~=Dec_CodBitO);
+            ErrNum2=sum(CodBit(nblk,:)~=demod_qpsk(SO));
             ber_recO(nblk)= ErrNum1/(Nbit);
             ber_recrawO(nblk)=ErrNum2/(Nbit/rate);
             scatterplot(SO);
@@ -219,6 +221,8 @@ for packet_idx= [1] %[1 2 3 4 5 6 8 11 14 20 23 26 29 32]
                 [S_Est LLe_cod]= MIMO_OFDM_EnhSoftEqu_qpsk_fn_04June11(Yblk,LLa_cod,h,K,Ns,L,Nt,Nr,Nbps,SNRdB);
             end
             S_Est_Iter((k-1)*Nt+1: k*Nt,:)= S_Est;
+            scatterplot(S_Est);
+            title('LS信道估计',FontSize=20);
 
             BER_cost=0;
             symbol_err=block_symbol-S_Est;
@@ -261,11 +265,12 @@ for packet_idx= [1] %[1 2 3 4 5 6 8 11 14 20 23 26 29 32]
                     BER(nt,k)= ErrNum(nt,k)/Nbit;
 
                     Dec_CodBit= randdeintrlv(demod_qpsk(S_Est(nt,:)),0);
-                    ErrNumraw(nt,k)=sum(CodBit(nblk,1: 2*K)~=Dec_CodBit);
+                    ErrNumraw(nt,k)=sum(CodBit(nblk,1: 2*K)~=demod_qpsk(S_Est(nt,:)));
                     Decod_InfoBit1= vitdec(Dec_CodBit,T214,tblen,'cont','hard');
                     Decod_InfoBit1= Decod_InfoBit1(tblen+1: Nbit);
                     ErrNum1(nt,k)= sum(block_bit(1: K-tblen)~=Decod_InfoBit1);
                     BER1(nt,k)= ErrNum1(nt,k)/Nbit;
+                    ber_rec(nblk)=ErrNum1(nt,k)/Nbit;
                     ber_recraw(nblk)=ErrNumraw(nt,k)/(2*Nbit);
                     
                 end
@@ -274,9 +279,9 @@ for packet_idx= [1] %[1 2 3 4 5 6 8 11 14 20 23 26 29 32]
         ErrNum_All(:,nblk)= sum(ErrNum);
         ErrNum1_All(:,nblk)= sum(ErrNum1);
 %         ErrNumraw_All(:,nblk)= sum(ErrNumraw);
-        for nt= 1: Nt
-            ErrNum_All_Tx((nt-1)*Niter+1: nt*Niter,nblk)= ErrNum1(nt,:);
-        end
+%         for nt= 1: Nt
+%             ErrNum_All_Tx((nt-1)*Niter+1: nt*Niter,nblk)= ErrNum1(nt,:);
+%         end
     end
     
     BER_All= ErrNum1_All/Nbit

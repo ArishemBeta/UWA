@@ -26,22 +26,22 @@ for n=0:Namp
     Gn=diff(G,n);
     for b=1:Nb
         b
-        for d=0:D
+        parfor d=0:D
             if(d==0)
                 for m=1:K
-%                     temp(m)=subs(Gn,'f',(cfo-beta(b)*(13000+(m-1-K/2)/T))/(1+beta(b)));
-                    gamma_rec(Nb*n+b,m)=subs(Gn,'f',(cfo-beta(b)*(13000+(m-1-K/2)/T))/(1+beta(b)));
-                    gamma(m,m)= gamma_rec(Nb*n+b,m);
+                    temp(m)=subs(Gn,'f',(cfo-beta(b)*(13000+(m-1-K/2)/T))/(1+beta(b)));
+%                     gamma_rec(Nb*n+b,m)=subs(Gn,'f',(cfo-beta(b)*(13000+(m-1-K/2)/T))/(1+beta(b)));
+%                     gamma(m,m)= gamma_rec(Nb*n+b,m);
                 end
 
             else
                 for m=1:K-d
-%                     temp1=subs(Gn,'f',(-d)/T+(cfo-beta(b)*(13000+(m-1-K/2)/T))/(1+beta(b)));
-%                     temp2=subs(Gn,'f',d/T+(cfo-beta(b)*(13000+(m-1-K/2)/T))/(1+beta(b)));
-                    gamma_rec(Nb*n+b,(2*d-1)*K-d*(d-1)+m)=subs(Gn,'f',(-d)/T+(cfo-beta(b)*(13000+(m-1-K/2)/T))/(1+beta(b)));
-                    gamma_rec(Nb*n+b,2*d*K-d^2+m)=subs(Gn,'f',d/T+(cfo-beta(b)*(13000+(m-1-K/2)/T))/(1+beta(b)));
-                    gamma(m,m+d)=gamma_rec(Nb*n+b,(2*d-1)*K-d*(d-1)+m);
-                    gamma(m+d,m)=gamma_rec(Nb*n+b,2*d*K-d^2+m);
+                    temp1=subs(Gn,'f',(-d)/T+(cfo-beta(b)*(13000+(m-1-K/2)/T))/(1+beta(b)));
+                    temp2=subs(Gn,'f',d/T+(cfo-beta(b)*(13000+(m-1-K/2)/T))/(1+beta(b)));
+%                     gamma_rec(Nb*n+b,(2*d-1)*K-d*(d-1)+m)=subs(Gn,'f',(-d)/T+(cfo-beta(b)*(13000+(m-1-K/2)/T))/(1+beta(b)));
+%                     gamma_rec(Nb*n+b,2*d*K-d^2+m)=subs(Gn,'f',d/T+(cfo-beta(b)*(13000+(m-1-K/2)/T))/(1+beta(b)));
+%                     gamma(m,m+d)=gamma_rec(Nb*n+b,(2*d-1)*K-d*(d-1)+m);
+%                     gamma(m+d,m)=gamma_rec(Nb*n+b,2*d*K-d^2+m);
                 end
             end
             
