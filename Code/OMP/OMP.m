@@ -21,33 +21,34 @@ G=(sin(pi*f*T)/(pi*f*T))*exp(-sqrt(-1)*pi*f*T);
 gamma=zeros(K,K);
 gamma_rec=zeros((Namp+1)*Nb,(2*D+1)*K-D*(D+1));
 
-
-for n=0:Namp
+%%%
+for k=1:(Namp+1)*Nb
+    n=floor((k-1)/Nb);
+    b=mod(k-1,Nb)+1;
     Gn=diff(G,n);
+    parfor s=1:(1+2*D)*K
+        s
+        d=sign(mod(floor((s-1)/K),2)-0.5)*round(floor((s-1)/K)/2);
+        m=mod(s-1,K)+1;
+        gamma_rec(k,s)=subs(Gn,'f',-d/T+(cfo-beta(b)*(13000+(m+abs(d)*logical(sign(d)-1)-1-K/2)/T))/(1+beta(b)));
+    end
+end
+for n=0:Namp
     for b=1:Nb
-        b
         for d=0:D
             if(d==0)
                 for m=1:K
-%                     temp(m)=subs(Gn,'f',(cfo-beta(b)*(13000+(m-1-K/2)/T))/(1+beta(b)));
-                    gamma_rec(Nb*n+b,m)=subs(Gn,'f',(cfo-beta(b)*(13000+(m-1-K/2)/T))/(1+beta(b)));
-                    gamma(m,m)= gamma_rec(Nb*n+b,m);
+                    gamma(m,m)=gamma_rec(Nb*n+b,m);
                 end
-
             else
                 for m=1:K-d
-%                     temp1=subs(Gn,'f',(-d)/T+(cfo-beta(b)*(13000+(m-1-K/2)/T))/(1+beta(b)));
-%                     temp2=subs(Gn,'f',d/T+(cfo-beta(b)*(13000+(m-1-K/2)/T))/(1+beta(b)));
-                    gamma_rec(Nb*n+b,(2*d-1)*K-d*(d-1)+m)=subs(Gn,'f',(-d)/T+(cfo-beta(b)*(13000+(m-1-K/2)/T))/(1+beta(b)));
-                    gamma_rec(Nb*n+b,2*d*K-d^2+m)=subs(Gn,'f',d/T+(cfo-beta(b)*(13000+(m-1-K/2)/T))/(1+beta(b)));
                     gamma(m,m+d)=gamma_rec(Nb*n+b,(2*d-1)*K-d*(d-1)+m);
                     gamma(m+d,m)=gamma_rec(Nb*n+b,2*d*K-d^2+m);
                 end
             end
-            
         end
         for p=1:Np
-%             n*Np*Nb+(b-1)*Np+p
+            %             n*Np*Nb+(b-1)*Np+p
             A(:,n*Np*Nb+(b-1)*Np+p)=diag(exp(-sqrt(-1)*2*pi*delay_hat(p)/T*[-K/2:K/2-1]))...
                 *gamma...
                 *sp;
@@ -55,31 +56,62 @@ for n=0:Namp
     end
 end
 
+%%%
 
-% for n=1:Namp+1
-%     Gn=diff(G,n-1);
+% for n=0:Namp
+%     Gn=diff(G,n);
 %     for b=1:Nb
-%         gamma=zeros(K,K);
-%         for d=1:D+1
-%             if(d==1)
+%         b
+%         for d=0:D
+%             if(d==0)
 %                 for m=1:K
-%                     gamma(m,m)=subs(Gn,'f',(cfo-beta(b)*(13000+(m-1-K/2)/T))/(1+beta(b)));
+%                     gamma_rec(Nb*n+b,m)=subs(Gn,'f',(cfo-beta(b)*(13000+(m-1-K/2)/T))/(1+beta(b)));
+%                     gamma(m,m)= gamma_rec(Nb*n+b,m);
 %                 end
 %             else
-%                 for m=1:K-d+1
-%                     gamma(m,m+d-1)=subs(Gn,'f',(1-d)/T+(cfo-beta(b)*(13000+(m-1-K/2)/T))/(1+beta(b)));
-%                     gamma(m+d-1,m)=subs(Gn,'f',(d-1)/T+(cfo-beta(b)*(13000+(m-1-K/2)/T))/(1+beta(b)));
+%                 for m=1:K-d
+%                     gamma_rec(Nb*n+b,(2*d-1)*K-d*(d-1)+m)=subs(Gn,'f',(-d)/T+(cfo-beta(b)*(13000+(m-1-K/2)/T))/(1+beta(b)));
+%                     gamma_rec(Nb*n+b,2*d*K-d^2+m)=subs(Gn,'f',d/T+(cfo-beta(b)*(13000+(m+d-1-K/2)/T))/(1+beta(b)));
+%                     gamma(m,m+d)=gamma_rec(Nb*n+b,(2*d-1)*K-d*(d-1)+m);
+%                     gamma(m+d,m)=gamma_rec(Nb*n+b,2*d*K-d^2+m);
 %                 end
 %             end
+%             
 %         end
 %         for p=1:Np
-%             (n-1)*Np*Nb+(b-1)*Np+p
-%             A(:,(n-1)*Np*Nb+(b-1)*Np+p)=diag(exp(-sqrt(-1)*2*pi*delay_hat(p)/T*[-K/2:K/2-1]))...
+% %             n*Np*Nb+(b-1)*Np+p
+%             A(:,n*Np*Nb+(b-1)*Np+p)=diag(exp(-sqrt(-1)*2*pi*delay_hat(p)/T*[-K/2:K/2-1]))...
 %                 *gamma...
 %                 *sp;
 %         end
 %     end
 % end
+
+
+% % % for n=1:Namp+1
+% % %     Gn=diff(G,n-1);
+% % %     for b=1:Nb
+% % %         gamma=zeros(K,K);
+% % %         for d=1:D+1
+% % %             if(d==1)
+% % %                 for m=1:K
+% % %                     gamma(m,m)=subs(Gn,'f',(cfo-beta(b)*(13000+(m-1-K/2)/T))/(1+beta(b)));
+% % %                 end
+% % %             else
+% % %                 for m=1:K-d+1
+% % %                     gamma(m,m+d-1)=subs(Gn,'f',(1-d)/T+(cfo-beta(b)*(13000+(m-1-K/2)/T))/(1+beta(b)));
+% % %                     gamma(m+d-1,m)=subs(Gn,'f',(d-1)/T+(cfo-beta(b)*(13000+(m-1-K/2)/T))/(1+beta(b)));
+% % %                 end
+% % %             end
+% % %         end
+% % %         for p=1:Np
+% % %             (n-1)*Np*Nb+(b-1)*Np+p
+% % %             A(:,(n-1)*Np*Nb+(b-1)*Np+p)=diag(exp(-sqrt(-1)*2*pi*delay_hat(p)/T*[-K/2:K/2-1]))...
+% % %                 *gamma...
+% % %                 *sp;
+% % %         end
+% % %     end
+% % % end
 
 xi=zeros((Namp+1)*Np*Nb,1);
 index=[];
@@ -88,7 +120,7 @@ k=1;
 r=zp;
 cor=A'*r;
 coro=sum(abs(cor));
-while sum(abs(cor))>0.1
+while sum(abs(cor))>0.05
     if(k>Nb*Np*(Namp+1)) break; end;
     [Rm,ind]=max(abs(cor));
     index=[index ind];
@@ -147,60 +179,60 @@ for i=1:height(param)
 end
 
 
-% Gn=diff(G,param(1,1));
-% 
-% for d=1:D+1
-%     if(d==1)
-%         for m=1:K
-%             gamma(m,m)=subs(Gn,'f',(cfo-param(1,2)*(13000+(m-1-K/2)/T))/(1+param(1,2)));
-%         end
-%     else
-%         for m=1:K-d+1
-%             gamma(m,m+d-1)=subs(Gn,'f',(1-d)/T+(cfo-param(1,2)*(13000+(m-1-K/2)/T))/(1+param(1,2)));
-%             gamma(m+d-1,m)=subs(Gn,'f',(d-1)/T+(cfo-param(1,2)*(13000+(m-1-K/2)/T))/(1+param(1,2)));
-%         end
-%     end
-% end
-% 
-% for i=1:height(param)
-%     if((i>1)&&(param(i,1)~=param(i-1,1)))
-% %         Gn=diff(G,param(i,1));
-%         Gn=diff(Gn,1);
-%     end
-%     if((i>1)&&(param(i,2)~=param(i-1,2)))
-%         for d=1:D+1
-%             if(d==1)
-%                 for m=1:K
-%                     gamma(m,m)=subs(Gn,'f',(cfo-param(i,2)*(13000+(m-1-K/2)/T))/(1+param(i,2)));
-%                 end
-%             else
-%                 for m=1:K-d+1
-%                     gamma(m,m+d-1)=subs(Gn,'f',(1-d)/T+(cfo-param(i,2)*(13000+(m-1-K/2)/T))/(1+param(i,2)));
-%                     gamma(m+d-1,m)=subs(Gn,'f',(d-1)/T+(cfo-param(i,2)*(13000+(m-1-K/2)/T))/(1+param(i,2)));
-%                 end
-%             end
-%         end
-%     end
-%     H=H+xind(param(i,5))*diag(exp(-sqrt(-1)*2*pi*param(i,3)/T*[-K/2:K/2-1]))*gamma;
-% end
+% % % Gn=diff(G,param(1,1));
+% % % 
+% % % for d=1:D+1
+% % %     if(d==1)
+% % %         for m=1:K
+% % %             gamma(m,m)=subs(Gn,'f',(cfo-param(1,2)*(13000+(m-1-K/2)/T))/(1+param(1,2)));
+% % %         end
+% % %     else
+% % %         for m=1:K-d+1
+% % %             gamma(m,m+d-1)=subs(Gn,'f',(1-d)/T+(cfo-param(1,2)*(13000+(m-1-K/2)/T))/(1+param(1,2)));
+% % %             gamma(m+d-1,m)=subs(Gn,'f',(d-1)/T+(cfo-param(1,2)*(13000+(m-1-K/2)/T))/(1+param(1,2)));
+% % %         end
+% % %     end
+% % % end
+% % % 
+% % % for i=1:height(param)
+% % %     if((i>1)&&(param(i,1)~=param(i-1,1)))
+% % % %         Gn=diff(G,param(i,1));
+% % %         Gn=diff(Gn,1);
+% % %     end
+% % %     if((i>1)&&(param(i,2)~=param(i-1,2)))
+% % %         for d=1:D+1
+% % %             if(d==1)
+% % %                 for m=1:K
+% % %                     gamma(m,m)=subs(Gn,'f',(cfo-param(i,2)*(13000+(m-1-K/2)/T))/(1+param(i,2)));
+% % %                 end
+% % %             else
+% % %                 for m=1:K-d+1
+% % %                     gamma(m,m+d-1)=subs(Gn,'f',(1-d)/T+(cfo-param(i,2)*(13000+(m-1-K/2)/T))/(1+param(i,2)));
+% % %                     gamma(m+d-1,m)=subs(Gn,'f',(d-1)/T+(cfo-param(i,2)*(13000+(m-1-K/2)/T))/(1+param(i,2)));
+% % %                 end
+% % %             end
+% % %         end
+% % %     end
+% % %     H=H+xind(param(i,5))*diag(exp(-sqrt(-1)*2*pi*param(i,3)/T*[-K/2:K/2-1]))*gamma;
+% % % end
 
-% % for i=1:length(index)
-% %     Gn=diff(G,param(i,1));
-% %     gamma=zeros(K,K);
-% %     for d=1:D+1
-% %         if(d==1)
-% %             for m=1:K
-% %                 gamma(m,m)=subs(Gn,'f',(cfo-param(i,2)*(13000+(m-1-K/2)/T))/(1+param(i,2)));
-% %             end
-% %         else
-% %             for m=1:K-d+1
-% %                 gamma(m,m+d-1)=subs(Gn,'f',(1-d)/T+(cfo-param(i,2)*(13000+(m-1-K/2)/T))/(1+param(i,2)));
-% %                 gamma(m+d-1,m)=subs(Gn,'f',(d-1)/T+(cfo-param(i,2)*(13000+(m-1-K/2)/T))/(1+param(i,2)));
-% %             end
-% %         end
-% %     end
-% %     H=H+xind(i)*diag(exp(-sqrt(-1)*2*pi*param(i,3)/T*[-K/2:K/2-1]))*gamma;
-% % end
+% % % % for i=1:length(index)
+% % % %     Gn=diff(G,param(i,1));
+% % % %     gamma=zeros(K,K);
+% % % %     for d=1:D+1
+% % % %         if(d==1)
+% % % %             for m=1:K
+% % % %                 gamma(m,m)=subs(Gn,'f',(cfo-param(i,2)*(13000+(m-1-K/2)/T))/(1+param(i,2)));
+% % % %             end
+% % % %         else
+% % % %             for m=1:K-d+1
+% % % %                 gamma(m,m+d-1)=subs(Gn,'f',(1-d)/T+(cfo-param(i,2)*(13000+(m-1-K/2)/T))/(1+param(i,2)));
+% % % %                 gamma(m+d-1,m)=subs(Gn,'f',(d-1)/T+(cfo-param(i,2)*(13000+(m-1-K/2)/T))/(1+param(i,2)));
+% % % %             end
+% % % %         end
+% % % %     end
+% % % %     H=H+xind(i)*diag(exp(-sqrt(-1)*2*pi*param(i,3)/T*[-K/2:K/2-1]))*gamma;
+% % % % end
 figure();
 image(abs(H),'CDataMapping','scaled');
 colorbar;

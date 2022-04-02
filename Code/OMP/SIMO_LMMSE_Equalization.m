@@ -10,7 +10,7 @@ end
 S_est=zeros(K,1);
 z=reshape(z,Nr*K,1);
 % noise=sum(abs((diag(repmat(not(sc),1,K*Nr/length(sc)))*z)).^2)/(K*nKr*Nr);
-noise=N0;
+noise=N0/10;
 f=inv(H*S_var*H'+noise*eye(K*Nr));
 for m=1:K
 %     m

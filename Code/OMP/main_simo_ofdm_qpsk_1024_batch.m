@@ -29,10 +29,10 @@ SNR= 10^(SNRdB/10);     %SNR in linear scale
 L= 80;                 %length of channel
 
 % Chnn_idx=[1];                              %01 phone
-Chnn_idx=[1 2];                              %02 phones
-% Chnn_idx=[1 3 5 7];                        %04 phones
+% Chnn_idx=[1 2];                              %02 phones
+Chnn_idx=[1 3 5 7];                        %04 phones
 % Chnn_idx=[1 2 3 6 7 8];                    %06 phones
-%  Chnn_idx=[1 2 3 4 5 6 7 8];               %08 phones
+% Chnn_idx=[1 2 3 4 5 6 7 8];               %08 phones
 Nr= length(Chnn_idx);
 
 LL_min= -1e5;
@@ -116,6 +116,7 @@ for packet_idx= [1] %[1 2 3 4 5 6 8 11 14 20 23 26 29 32]
             for n=1:length(RX_block(i,:))
                 RX_block(i,n)=RX_block(i,n)*(exp(sqrt(-1)*2*pi*(-13000*doppler_scale(nblk))*(n-1)/48828.125));
             end
+            cfo(nblk)=-0.5;
             for n=1:length(RX_block(i,:))
                 RX_block(i,n)=RX_block(i,n)*(exp(sqrt(-1)*2*pi*(-cfo(nblk))*(n-1)/48828.125));
             end
@@ -132,7 +133,7 @@ for packet_idx= [1] %[1 2 3 4 5 6 8 11 14 20 23 26 29 32]
             H=zeros(K*Nr,K);
             tic
             for i=1:Nr
-                H((i-1)*K+1:i*K,:)=OMP(z(:,i),0,Fb,K,sc_idx,block_symbol.',-0.00003,0.00003,0.00001,-rand()+0.5,L,3);
+                H((i-1)*K+1:i*K,:)=OMP(z(:,i),0,Fb,K,sc_idx,block_symbol.',-0.00005,0.00005,0.00001,cfo(nblk),L,3);
             end
             toc
 %-------------¾ùºâ--------------

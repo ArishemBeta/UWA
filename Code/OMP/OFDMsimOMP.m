@@ -2,7 +2,7 @@ clc;
 clear all;
 close all;
 
-% parpool('local',8);
+% parpool('local',16);
 
 MMode='QPSK';
 K=1024*0.5^0;
@@ -159,7 +159,7 @@ if(ifOMP)
 
     z=(fft(yO)./sqrt(length(yO))).';
     tic
-    H=OMP(z,0,B,K,sc_idx,block_symbol.',-0.00005,0.00005,0.00001,cfo(nblk),L,0);
+    H=OMP(z,0,B,K,sc_idx,block_symbol.',-0.00005,0.00005,0.00001,cfo(nblk),L,1);
     toc
 %     S_EstO=((H'*H+N0*eye(K))\H'*z).';
     tic
