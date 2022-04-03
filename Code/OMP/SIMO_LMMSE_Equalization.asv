@@ -3,7 +3,7 @@ if(strcmp(MMode,'QPSK'))
     S_bar=gpuArray.zeros(K,1);
     S_var=gpuArray(diag(repmat(sc,1,K/length(sc))));
 elseif(strcmp(MMode,'16QAM'))
-    S_bar=gpuArray.zeros(K,1);
+    S_bar=zeros(K,1);
     S_var=gpuArray(diag(repmat(sc,1,K/length(sc))*0.9472));
 end
 
@@ -15,9 +15,9 @@ H=gpuArray(H);
 f=H*S_var*H'+noise*eye(K*Nr);
 f=f\eye(size(f));
 for m=1:K
+%     m
     f_m=f*H(:,m);
     S_est(m)=S_bar(m)+S_var(m,m)...
                             *f_m'...
-                            *(z-H*S_bar);
+                            *gpuArray((z-H*S_bar));
 end
-S_est=gather(S_est);

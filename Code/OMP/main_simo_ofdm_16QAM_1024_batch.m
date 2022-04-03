@@ -29,7 +29,7 @@ Kg= 120;                %gap between OFDM symbol or between OFDM symbol and pilo
 sc_idx= [1:4:K];        %indices of subcarriers for channel estimation
 Nbit= K*Nbps*rate;      %number of information bits in one OFDM symbol
 Nrepeat= 12;             %number of OFDM symbols in each packet
-SNRdB= 10;              %signal-to-noise ratio in dB
+SNRdB= 35;              %signal-to-noise ratio in dB
 SNR= 10^(SNRdB/10);     %SNR in linear scale
 L= 80;                 %length of channel
 
@@ -88,7 +88,7 @@ for packet_idx= [1] %[1 2 3 4 5 6 8 11 14 20 23 26 29 32]
     
     S_Est_Iter= zeros(Nt*Niter,K);
     
-    for nblk= [1:12]%: 12]%Nrepeat]
+    for nblk= [1:1]%: 12]%Nrepeat]
         
         nblk
         Noffset= 1300*Nt+511+189+12*2*1354;
@@ -133,16 +133,16 @@ for packet_idx= [1] %[1 2 3 4 5 6 8 11 14 20 23 26 29 32]
             H=zeros(K*Nr,K);
             tic
             for i=1:Nr
-                H((i-1)*K+1:i*K,:)=OMP(z(:,i),2,Fb,K,sc_idx,block_symbol.',-0.00010,0.00010,0.00001,-0.1,L,5);
+                H((i-1)*K+1:i*K,:)=OMP(z(:,i),1,Fb,K,sc_idx,block_symbol.',-0.00010,0.00010,0.00001,-0.1,L,5);
             end
             toc
 %-------------均衡--------------
             %  S_EstO=((H'*H+N0*eye(K))\H'*z).';
-            P=sum(sum(abs(RX_block).^2))/(K*Nr*Ns);
+            P=sum(sum(abs(RX_block).^2))/((K+L)*Nr*Ns);
             N0=P/(1+SNR);
-%             tic
+            tic
             S_EstO=SIMO_LMMSE_Equalization(reshape(z,1,K*Nr),H,K,[1,1,1,1],Nr,Nt,'16QAM',0,N0);
-%             toc
+            toc
             SO=S_EstO.';
 
             Dec_CodBitO= randdeintrlv(demod_mqam(SO,16),0);

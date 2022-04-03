@@ -30,9 +30,9 @@ L= 80;                 %length of channel
 
 % Chnn_idx=[1];                              %01 phone
 % Chnn_idx=[1 2];                              %02 phones
-Chnn_idx=[1 3 5 7];                        %04 phones
+% Chnn_idx=[1 3 5 7];                        %04 phones
 % Chnn_idx=[1 2 3 6 7 8];                    %06 phones
-% Chnn_idx=[1 2 3 4 5 6 7 8];               %08 phones
+Chnn_idx=[1 2 3 4 5 6 7 8];               %08 phones
 Nr= length(Chnn_idx);
 
 LL_min= -1e5;
@@ -140,9 +140,9 @@ for packet_idx= [1] %[1 2 3 4 5 6 8 11 14 20 23 26 29 32]
             %  S_EstO=((H'*H+N0*eye(K))\H'*z).';
             P=sum(sum(abs(RX_block).^2))/(K*Nr*Ns);
             N0=P/(1+SNR);
-%             tic
+            tic
             S_EstO=SIMO_LMMSE_Equalization(reshape(z,1,K*Nr),H,K,[1,1,1,1],Nr,Nt,'QPSK',0,N0);
-%             toc
+            toc
             SO=S_EstO.';
 
             Dec_CodBitO= randdeintrlv(demod_qpsk(SO),0);

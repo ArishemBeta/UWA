@@ -6,57 +6,89 @@ t=ones(1,K);
 % t(max(sc_idx-1,1))=1;
 % t(sc_idx+1)=1;
 T=K/B;
+deltaf=1/T;
 selector=zeros(K,K);
 selector(logical(eye(size(selector))))=t;
 zp=selector*z;
 sp=selector*block_symbol;
-delay_hat=[1/B:1/(B):L/B];
-beta=[bmin:dbeta:bmax];
+delay_hat=1/B:1/(B):L/B;
+beta=bmin:dbeta:bmax;
 Np=length(delay_hat);                             %----------Np-----------
 Nb=length(beta);                                  %|
-A=zeros(K,(Namp+1)*Np*Nb);                        %|
-% Ablock=zeros(K/length(sc_idx),Np*Nb);           %Nb
+A=zeros(K,(Namp+1)*Np*Nb);                        %|Nb
 syms f;                                           %|
 G=(sin(pi*f*T)/(pi*f*T))*exp(-sqrt(-1)*pi*f*T);
 gamma=zeros(K,K);
-gamma_rec=zeros((Namp+1)*Nb,(2*D+1)*K-D*(D+1));
+gamma_rec=zeros((Namp+1)*Nb,(2*D+1)*K);
 
-%%%
+%%%               gf    sparse    rec    par
+% tic
 for k=1:(Namp+1)*Nb
     n=floor((k-1)/Nb);
     b=mod(k-1,Nb)+1;
     Gn=diff(G,n);
-    parfor s=1:(1+2*D)*K
-        s
-        d=sign(mod(floor((s-1)/K),2)-0.5)*round(floor((s-1)/K)/2);
+    gf=matlabFunction(Gn);
+    for s=1:(1+2*D)*K
+%         s
+        t=floor((s-1)/K);
+        d=sign(mod(t,2)-0.5)*round(t/2);
         m=mod(s-1,K)+1;
-        gamma_rec(k,s)=subs(Gn,'f',-d/T+(cfo-beta(b)*(13000+(m+abs(d)*logical(sign(d)-1)-1-K/2)/T))/(1+beta(b)));
+        gamma_rec(k,s)=gf(-d*deltaf+(cfo-beta(b)*(13000+(m+abs(d)*logical(sign(d)-1)-1-K/2)*deltaf))/(1+beta(b)));
     end
 end
+% toc
+% tic
+
+gamma_pos=zeros((2*D+1)*K-D*(D+1),2);
+gamma_val=zeros((2*D+1)*K-D*(D+1),1);
 for n=0:Namp
     for b=1:Nb
         for d=0:D
             if(d==0)
-                for m=1:K
-                    gamma(m,m)=gamma_rec(Nb*n+b,m);
-                end
+                    gamma_pos(1:K,:)=[1:K;1:K].';
+                    gamma_val(1:K)=gamma_rec(Nb*n+b,1:K);
             else
-                for m=1:K-d
-                    gamma(m,m+d)=gamma_rec(Nb*n+b,(2*d-1)*K-d*(d-1)+m);
-                    gamma(m+d,m)=gamma_rec(Nb*n+b,2*d*K-d^2+m);
-                end
+                    gamma_pos((2*d-1)*K-(d-1)*d+1:2*d*K-d*d,:)=[1:K-d;d+1:K].';
+                    gamma_pos(2*d*K-d*d+1:(2*d+1)*K-(d+1)*d,:)=[d+1:K;1:K-d].';
+                    gamma_val((2*d-1)*K-(d-1)*d+1:2*d*K-d*d)=gamma_rec(Nb*n+b,(2*d-1)*K+1:2*d*K-d);
+                    gamma_val(2*d*K-d*d+1:(2*d+1)*K-(d+1)*d)=gamma_rec(Nb*n+b,2*d*K+1:(2*d+1)*K-d);
             end
         end
+        gamma=sparse(gamma_pos(:,1),gamma_pos(:,2),gamma_val);
         for p=1:Np
-            %             n*Np*Nb+(b-1)*Np+p
-            A(:,n*Np*Nb+(b-1)*Np+p)=diag(exp(-sqrt(-1)*2*pi*delay_hat(p)/T*[-K/2:K/2-1]))...
+            A(:,n*Np*Nb+(b-1)*Np+p)=sparse(1:K,1:K,exp(-sqrt(-1)*2*pi*delay_hat(p)*deltaf*[-K/2:K/2-1]))...
                 *gamma...
                 *sp;
         end
     end
 end
 
-%%%
+% for n=0:Namp
+%     for b=1:Nb
+%         for d=0:D
+%             if(d==0)
+%                 for m=1:K
+%                     gamma(m,m)=gamma_rec(Nb*n+b,m);
+%                 end
+%             else
+%                 for m=1:K-d
+%                     gamma(m,m+d)=gamma_rec(Nb*n+b,(2*d-1)*K+m);
+%                     gamma(m+d,m)=gamma_rec(Nb*n+b,2*d*K+m);
+% %                     gamma(m,m+d)=gamma_rec(Nb*n+b,(2*d-1)*K-d*(d-1)+m);
+% %                     gamma(m+d,m)=gamma_rec(Nb*n+b,2*d*K-d^2+m);
+%                 end
+%             end
+%         end
+%         for p=1:Np
+%             A(:,n*Np*Nb+(b-1)*Np+p)=sparse(1:K,1:K,exp(-sqrt(-1)*2*pi*delay_hat(p)*deltaf*[-K/2:K/2-1]))...
+%                 *sparse(gamma)...
+%                 *sp;
+%         end
+%     end
+% end
+% toc
+
+%%%               rec
 
 % for n=0:Namp
 %     Gn=diff(G,n);
@@ -76,7 +108,6 @@ end
 %                     gamma(m+d,m)=gamma_rec(Nb*n+b,2*d*K-d^2+m);
 %                 end
 %             end
-%             
 %         end
 %         for p=1:Np
 % %             n*Np*Nb+(b-1)*Np+p
@@ -87,27 +118,29 @@ end
 %     end
 % end
 
+% % %              gf
 
 % % % for n=1:Namp+1
 % % %     Gn=diff(G,n-1);
+% % %     gf=matlabFunction(Gn);
 % % %     for b=1:Nb
 % % %         gamma=zeros(K,K);
 % % %         for d=1:D+1
 % % %             if(d==1)
 % % %                 for m=1:K
-% % %                     gamma(m,m)=subs(Gn,'f',(cfo-beta(b)*(13000+(m-1-K/2)/T))/(1+beta(b)));
+% % %                     gamma(m,m)=gf((cfo-beta(b)*(13000+(m-1-K/2)/T))/(1+beta(b)));
 % % %                 end
 % % %             else
 % % %                 for m=1:K-d+1
-% % %                     gamma(m,m+d-1)=subs(Gn,'f',(1-d)/T+(cfo-beta(b)*(13000+(m-1-K/2)/T))/(1+beta(b)));
-% % %                     gamma(m+d-1,m)=subs(Gn,'f',(d-1)/T+(cfo-beta(b)*(13000+(m-1-K/2)/T))/(1+beta(b)));
+% % %                     gamma(m,m+d-1)=gf((1-d)/T+(cfo-beta(b)*(13000+(m-1-K/2)/T))/(1+beta(b)));
+% % %                     gamma(m+d-1,m)=gf((d-1)/T+(cfo-beta(b)*(13000+(m-1-K/2)/T))/(1+beta(b)));
 % % %                 end
 % % %             end
 % % %         end
 % % %         for p=1:Np
 % % %             (n-1)*Np*Nb+(b-1)*Np+p
 % % %             A(:,(n-1)*Np*Nb+(b-1)*Np+p)=diag(exp(-sqrt(-1)*2*pi*delay_hat(p)/T*[-K/2:K/2-1]))...
-% % %                 *gamma...
+% % %                 *gamma...  
 % % %                 *sp;
 % % %         end
 % % %     end
@@ -124,14 +157,13 @@ while sum(abs(cor))>0.05
     if(k>Nb*Np*(Namp+1)) break; end;
     [Rm,ind]=max(abs(cor));
     index=[index ind];
-%     P=A(:,index)*inv(A(:,index)'*A(:,index))*A(:,index)';
     P=A(:,index)/(A(:,index)'*A(:,index))*A(:,index)';
     r=(eye(Am)-P)*zp;
     cor=A'*r;
     k=k+1;
 end
-sum(abs(cor))
-k
+% sum(abs(cor))
+% k
 xind=(A(:,index)'*A(:,index))\A(:,index)'*zp;
 xi(index)=xind;
 
@@ -161,7 +193,7 @@ param=sortrows(param,2);
 H=zeros(K,K);
 gamma=zeros(K,K);
 
-
+% tic
 for i=1:height(param)
     for d=0:D
         if(d==0)
@@ -170,13 +202,16 @@ for i=1:height(param)
             end
         else
             for m=1:K-d
-                gamma(m,m+d)=gamma_rec(Nb*param(i,1)+round((param(i,2)-bmin)/dbeta+1),(2*d-1)*K-d*(d-1)+m);
-                gamma(m+d,m)=gamma_rec(Nb*param(i,1)+round((param(i,2)-bmin)/dbeta+1),2*d*K-d^2+m);
+                gamma(m,m+d)=gamma_rec(Nb*param(i,1)+round((param(i,2)-bmin)/dbeta+1),(2*d-1)*K+m);
+                gamma(m+d,m)=gamma_rec(Nb*param(i,1)+round((param(i,2)-bmin)/dbeta+1),2*d*K+m);
             end
         end
     end
-    H=H+xind(param(i,5))*diag(exp(-sqrt(-1)*2*pi*param(i,3)/T*[-K/2:K/2-1]))*gamma;
+    H=H+xind(param(i,5))...
+            *sparse(1:K,1:K,exp(-sqrt(-1)*2*pi*param(i,3)/T*[-K/2:K/2-1]))...
+            *sparse(gamma);
 end
+% toc
 
 
 % % % Gn=diff(G,param(1,1));
@@ -218,24 +253,31 @@ end
 
 % % % % for i=1:length(index)
 % % % %     Gn=diff(G,param(i,1));
+% % % %     gf=matlabFunction(Gn);
 % % % %     gamma=zeros(K,K);
 % % % %     for d=1:D+1
 % % % %         if(d==1)
 % % % %             for m=1:K
-% % % %                 gamma(m,m)=subs(Gn,'f',(cfo-param(i,2)*(13000+(m-1-K/2)/T))/(1+param(i,2)));
+% % % %                 gamma(m,m)=gf((cfo-param(i,2)*(13000+(m-1-K/2)/T))/(1+param(i,2)));
+% % % % %                 gamma(m,m)=subs(Gn,'f',(cfo-param(i,2)*(13000+(m-1-K/2)/T))/(1+param(i,2)));
 % % % %             end
 % % % %         else
 % % % %             for m=1:K-d+1
-% % % %                 gamma(m,m+d-1)=subs(Gn,'f',(1-d)/T+(cfo-param(i,2)*(13000+(m-1-K/2)/T))/(1+param(i,2)));
-% % % %                 gamma(m+d-1,m)=subs(Gn,'f',(d-1)/T+(cfo-param(i,2)*(13000+(m-1-K/2)/T))/(1+param(i,2)));
+% % % %                 gamma(m,m+d-1)=gf((1-d)/T+(cfo-param(i,2)*(13000+(m-1-K/2)/T))/(1+param(i,2)));
+% % % %                 gamma(m+d-1,m)=gf((d-1)/T+(cfo-param(i,2)*(13000+(m-1-K/2)/T))/(1+param(i,2)));
+% % % % %                 gamma(m,m+d-1)=subs(Gn,'f',(1-d)/T+(cfo-param(i,2)*(13000+(m-1-K/2)/T))/(1+param(i,2)));
+% % % % %                 gamma(m+d-1,m)=subs(Gn,'f',(d-1)/T+(cfo-param(i,2)*(13000+(m-1-K/2)/T))/(1+param(i,2)));
 % % % %             end
 % % % %         end
 % % % %     end
 % % % %     H=H+xind(i)*diag(exp(-sqrt(-1)*2*pi*param(i,3)/T*[-K/2:K/2-1]))*gamma;
 % % % % end
-figure();
-image(abs(H),'CDataMapping','scaled');
-colorbar;
+
+% figure();
+% image(abs(H),'CDataMapping','scaled');
+% colorbar;
+
+% toc
 
 return
 
