@@ -2,14 +2,12 @@
 %Author: Jun Tao
 
 
-
 clc
 clear all
 close all
 addpath DopplerScaleEstimation/Code/RefSig
 addpath DopplerScaleEstimation/Code/SPACE08_Moving
 addpath DopplerScaleEstimation/Code/Turbo_OFDM_QPSK_2Tx_28May11
-
 
 % addpath ../RefSig
 % addpath ../SPACE08_Moving
@@ -31,7 +29,7 @@ Kg= 120;                %gap between OFDM symbol or between OFDM symbol and pilo
 sc_idx= [1:4:K];        %indices of subcarriers for channel estimation
 Nbit= K*Nbps*rate;      %number of information bits in one OFDM symbol
 Nrepeat= 12;             %number of OFDM symbols in each packet
-SNRdB= 35;              %signal-to-noise ratio in dB
+SNRdB= 30;              %signal-to-noise ratio in dB
 SNR= 10^(SNRdB/10);     %SNR in linear scale
 L= 80;                 %length of channel
 
@@ -67,13 +65,13 @@ for packet_idx= [1] %[1 2 3 4 5 6 8 11 14 20 23 26 29 32]
     for i=1:Nr
         RX_data_n(i,:)=interp1([0:length(RX_data(Chnn_idx(i),:))-1],RX_data(Chnn_idx(i),:),[0:855/956:length(RX_data(Chnn_idx(i),:))-1],'spline');
         %  plot(abs(RX_data_nn(1,:)));
-        RX_data_nn(i,:)=interp1((0:length(RX_data_n(i,:))-1),RX_data_n(i,:),(0:length(RX_data_n(i,:))-1)/(1+Doppler(1)/13000),'spline');
+        RX_data_nn(i,:)=interp1((0:length(RX_data_n(i,:))-1),RX_data_n(i,:),(0:length(RX_data_n(i,:))-1)/(1+(Doppler(1)-0.5)/13000),'spline');
         for n=1:length(RX_data_nn(i,:))
-            RX_data_nn(i,n)=RX_data_nn(i,n)*(exp(sqrt(-1)*2*pi*(-13000*Doppler(1)/13000)*(n-1)/48828.125));
+            RX_data_nn(i,n)=RX_data_nn(i,n)*(exp(sqrt(-1)*2*pi*(-13000*(Doppler(1)-0.5)/13000)*(n-1)/48828.125));
         end
 % RX_data_nn=RX_data_n;
     end
-    N_shift_symbol= 10;
+    N_shift_symbol= 6;
     N_shift_sample= 0;
     
     ErrNum= zeros(Nt,Niter);
@@ -94,7 +92,7 @@ for packet_idx= [1] %[1 2 3 4 5 6 8 11 14 20 23 26 29 32]
         
         nblk
         Noffset= 1300*Nt+511+189+12*2*1354;
-        Gap=Ns*(Noffset+N_shift_symbol);
+        Gap=Ns*(Noffset+N_shift_symbol)+N_shift_sample;
         Gap=fix(Gap);
         block_symbol=QAM16_TxSym(nblk,:);
         pilot_symbol=block_symbol(sc_idx);
@@ -102,6 +100,7 @@ for packet_idx= [1] %[1 2 3 4 5 6 8 11 14 20 23 26 29 32]
         pilot_bit=block_bit(sc_idx);
         %-------initial channel estimation with pilots-------
 
+        shift=fliplr([-11:0]);
         Gap= Gap+(Npilot+Kg)*Ns;
         if(nblk>1)
             Gap=Gap+shift(nblk);
@@ -134,9 +133,10 @@ for packet_idx= [1] %[1 2 3 4 5 6 8 11 14 20 23 26 29 32]
             z=(fft(yO)./sqrt(height(yO)));
             H=zeros(K*Nr,K);
             tic
-            for i=1:Nr
-                H((i-1)*K+1:i*K,:)=OMP(z(:,i),1,Fb,K,sc_idx,block_symbol.',-0.00010,0.00010,0.00001,-0.1,L,5);
-            end
+%             for i=1:Nr
+%                 H((i-1)*K+1:i*K,:)=OMP_MIMO(z(:,i),1,Fb,K,sc_idx,block_symbol.',-0.00010,0.00010,0.00001,-1,L,9,SNR);
+%             end
+            H=OMP_test(z,1,Fb,K,sc_idx,block_symbol.',-0.00010,0.00010,0.00001,-1,L,9,SNR);
             toc
 %-------------均衡--------------
             %  S_EstO=((H'*H+N0*eye(K))\H'*z).';
@@ -156,7 +156,7 @@ for packet_idx= [1] %[1 2 3 4 5 6 8 11 14 20 23 26 29 32]
             ber_recO(nblk)= ErrNum1/(Nbit);
             ber_recrawO(nblk)=ErrNum2/(Nbit/rate);
             scatterplot(SO);
-            title('OMP信道估计',FontSize=20);
+            title('OMP',FontSize=20);
 
             BER_costO=0;
             symbol_errO=block_symbol-SO;
@@ -181,6 +181,8 @@ for packet_idx= [1] %[1 2 3 4 5 6 8 11 14 20 23 26 29 32]
             PlotChannel(h,Nt,Nr,L);
             return
         end
+        figure();
+        plot(abs(h(1,:)));
         %starting MIMO equalization for OFDM symbol
         Yblk=y;
 
@@ -221,7 +223,7 @@ for packet_idx= [1] %[1 2 3 4 5 6 8 11 14 20 23 26 29 32]
             S_Est_Iter((k-1)*Nt+1: k*Nt,:)= S_Est;
 
             scatterplot(S_Est);
-            title('LS信道估计',FontSize=20);
+            title('LS',FontSize=20);
 
             if(pilot_LLR)
                 %replace estimated LLs of pilot bits with their true LLs.

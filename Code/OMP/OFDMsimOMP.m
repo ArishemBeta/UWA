@@ -4,7 +4,7 @@ close all;
 
 % parpool('local',16);
 
-MMode='QPSK';
+MMode='16QAM';
 K=1024*0.5^0;
 B=9765.625*0.5^0;
 ifOMP=1;
@@ -159,7 +159,7 @@ if(ifOMP)
 
     z=(fft(yO)./sqrt(length(yO))).';
     tic
-    H=OMP(z,0,B,K,sc_idx,block_symbol.',-0.00005,0.00005,0.00001,cfo(nblk),L,1);
+    H=OMP(z,0,B,K,sc_idx,block_symbol.',-0.00005,0.00005,0.00001,cfo(nblk),L,1,SNR);
     toc
 %     S_EstO=((H'*H+N0*eye(K))\H'*z).';
     tic
@@ -180,7 +180,7 @@ if(ifOMP)
     ber_recO(nblk)= ErrNum1/(Nbit_d);
     ber_recrawO(nblk)=ErrNum2/(Nbit_d/rate);
     scatterplot(SO);
-    title('OMP信道估计',FontSize=20);
+    title('OMP',FontSize=20);
 
     BER_costO=0;
     symbol_errO=data_sym_t(:,nblk).'-SO;
@@ -227,7 +227,7 @@ end
         S=(diag(repmat(sc,1,K/length(sc)))*S_Est(nt,:).').';
         S(find(S==0))=[];
         scatterplot(S);
-        title('LS信道估计',FontSize=20);
+        title('LS',FontSize=20);
 
         BER_cost=0;
         symbol_err=data_sym_t(:,nblk).'-S;

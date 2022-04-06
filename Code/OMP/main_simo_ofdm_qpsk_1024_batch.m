@@ -133,7 +133,7 @@ for packet_idx= [1] %[1 2 3 4 5 6 8 11 14 20 23 26 29 32]
             H=zeros(K*Nr,K);
             tic
             for i=1:Nr
-                H((i-1)*K+1:i*K,:)=OMP(z(:,i),0,Fb,K,sc_idx,block_symbol.',-0.00005,0.00005,0.00001,cfo(nblk),L,3);
+                H((i-1)*K+1:i*K,:)=OMP(z(:,i),0,Fb,K,sc_idx,block_symbol.',-0.00005,0.00005,0.00001,cfo(nblk),L,3,SNR);
             end
             toc
 %-------------均衡--------------
@@ -154,7 +154,7 @@ for packet_idx= [1] %[1 2 3 4 5 6 8 11 14 20 23 26 29 32]
             ber_recO(nblk)= ErrNum1/(Nbit);
             ber_recrawO(nblk)=ErrNum2/(Nbit/rate);
             scatterplot(SO);
-            title('OMP信道估计',FontSize=20);
+            title('OMP',FontSize=20);
 
             BER_costO=0;
             symbol_errO=block_symbol-SO;
@@ -223,7 +223,7 @@ for packet_idx= [1] %[1 2 3 4 5 6 8 11 14 20 23 26 29 32]
             end
             S_Est_Iter((k-1)*Nt+1: k*Nt,:)= S_Est;
             scatterplot(S_Est);
-            title('LS信道估计',FontSize=20);
+            title('LS',FontSize=20);
 
             BER_cost=0;
             symbol_err=block_symbol-S_Est;

@@ -1,13 +1,12 @@
-function H=OMP(z,Namp,B,K,sc_idx,block_symbol,bmin,bmax,dbeta,cfo,L,D,SNR)
+function H=OMP_MIMO(z,Namp,B,K,sc_idx,block_symbol,bmin,bmax,dbeta,cfo,L,D,SNR)
 % sparsity=Npa*(Namp+1);
 t=ones(1,K);
 % t=zeros(1,K);
 % t(sc_idx)=1;
 % t(max(sc_idx-1,1))=1;
 % t(sc_idx+1)=1;
+
 Nt=width(block_symbol);
-Nr=width(z);
-H=zeros(Nt*K,Nr*K);
 T=K/B;
 deltaf=1/T;
 selector=zeros(K,K);
@@ -18,10 +17,9 @@ delay_hat=1/B:1/(B):L/B;
 beta=bmin:dbeta:bmax;
 Np=length(delay_hat);                             %----------Np-----------
 Nb=length(beta);                                        %|
-A=zeros(K,(Namp+1)*Np*Nb);              %|Nb
+A=zeros(K,Nt*(Namp+1)*Np*Nb);       %|Nb
 syms f;                                                             %|
 G=(sin(pi*f*T)/(pi*f*T))*exp(-sqrt(-1)*pi*f*T);
-gamma=zeros(K,K);
 gamma_rec=zeros((Namp+1)*Nb,(2*D+1)*K);
 
 %%%               gf    sparse    rec    par
@@ -40,24 +38,26 @@ end
 
 gamma_pos=zeros((2*D+1)*K-D*(D+1),2);
 gamma_val=zeros((2*D+1)*K-D*(D+1),1);
-for n=0:Namp
-    for b=1:Nb
-        for d=0:D
-            if(d==0)
+for nt=1:Nt
+    for n=0:Namp
+        for b=1:Nb
+            for d=0:D
+                if(d==0)
                     gamma_pos(1:K,:)=[1:K;1:K].';
                     gamma_val(1:K)=gamma_rec(Nb*n+b,1:K);
-            else
+                else
                     gamma_pos((2*d-1)*K-(d-1)*d+1:2*d*K-d*d,:)=[1:K-d;d+1:K].';
                     gamma_pos(2*d*K-d*d+1:(2*d+1)*K-(d+1)*d,:)=[d+1:K;1:K-d].';
                     gamma_val((2*d-1)*K-(d-1)*d+1:2*d*K-d*d)=gamma_rec(Nb*n+b,(2*d-1)*K+1:2*d*K-d);
                     gamma_val(2*d*K-d*d+1:(2*d+1)*K-(d+1)*d)=gamma_rec(Nb*n+b,2*d*K+1:(2*d+1)*K-d);
+                end
             end
-        end
-        gamma=sparse(gamma_pos(:,1),gamma_pos(:,2),gamma_val);
-        for p=1:Np
-            A(:,n*Np*Nb+(b-1)*Np+p)=sparse(1:K,1:K,exp(-sqrt(-1)*2*pi*delay_hat(p)*deltaf*[-K/2:K/2-1]))...
-                *gamma...
-                *sp;
+            gamma=sparse(gamma_pos(:,1),gamma_pos(:,2),gamma_val);
+            for p=1:Np
+                A(:,(nt-1)*(Namp+1)*Np*Nb+n*Np*Nb+(b-1)*Np+p)=sparse(1:K,1:K,exp(-sqrt(-1)*2*pi*delay_hat(p)*deltaf*[-K/2:K/2-1]))...
+                    *gamma...
+                    *sp(:,nt);
+            end
         end
     end
 end
@@ -145,7 +145,7 @@ end
 % % %     end
 % % % end
 
-xi=zeros((Namp+1)*Np*Nb,1);
+xi=zeros(Nt*(Namp+1)*Np*Nb,1);
 index=[];
 k=1;
 [Am,An]=size(A);
@@ -163,15 +163,6 @@ cor_last=cor;
 %     k=k+1;
 % end
 
-% while sum(abs(cor))>0.01
-%     if(k>Nb*Np*(Namp+1)) break; end;
-%     [Rm,ind]=max(abs(cor));
-%     index=[index ind];
-%     P=A(:,index)/(A(:,index)'*A(:,index))*A(:,index)';
-%     r=(eye(Am)-P)*zp;
-%     cor=A'*r;
-%     k=k+1;
-% end
 threshold=1/(1+SNR)*norm(cor,'fro');
 while norm(cor,'fro')>threshold
     if(k>Nb*Np*(Namp+1)) break; end;
@@ -183,50 +174,59 @@ while norm(cor,'fro')>threshold
     k=k+1;
 end
 
-%  sum(abs(cor))
-
 xind=(A(:,index)'*A(:,index))\A(:,index)'*zp;
 xi(index)=xind;
 
-pos=zeros(length(index),3);
-param=zeros(length(index),5);
+pos=zeros(length(index),4);
+param=zeros(length(index),6);
 for i=1:length(index)
-    pos(i,1)=fix(index(i)/(Np*Nb))+1;                       %Namp
-    pos(i,2)=fix((index(i)-Np*Nb*(pos(i,1)-1))/Np)+1;       %Nb
-    pos(i,3)=index(i)-Np*Nb*(pos(i,1)-1)-Np*(pos(i,2)-1);   %Np
-    if(pos(i,3)==0)
-        pos(i,3)=Np;
-        pos(i,2)=pos(i,2)-1;
-        if(pos(i,2)==0)
-            pos(i,2)=Nb;
-            pos(i,1)=pos(i,1)-1;
+    pos(i,1)=fix(index(i)/((Namp+1)*Np*Nb))+1;      %Nt
+    pos(i,2)=fix((index(i)-(Namp+1)*Np*Nb*(pos(i,1)-1))/(Np*Nb))+1;                       %Namp
+    pos(i,3)=fix((index(i)-(Namp+1)*Np*Nb*(pos(i,1)-1)-Np*Nb*(pos(i,2)-1))/Np)+1;       %Nb
+    pos(i,4)=index(i)-(Namp+1)*Np*Nb*(pos(i,1)-1)-Np*Nb*(pos(i,2)-1)-Np*(pos(i,3)-1);   %Np
+    if(pos(i,4)==0)
+        pos(i,4)=Np;
+        pos(i,3)=pos(i,3)-1;
+        if(pos(i,3)==0)
+            pos(i,3)=Nb;
+            pos(i,2)=pos(i,2)-1;
+            if(pos(i,2)==0)
+                pos(i,2)=Namp+1;
+                pos(i,1)=pos(i,1)-1;
+            end
         end
     end
-    param(i,1)=pos(i,1)-1;
-    param(i,2)=beta(pos(i,2));
-    param(i,3)=delay_hat(pos(i,3));
+    param(i,1)=param(i,1);
+    param(i,2)=pos(i,2)-1;
+    param(i,3)=beta(pos(i,3));
+    param(i,4)=delay_hat(pos(i,4));
 end
-param(:,4)=index.';
-param(:,5)=(1:height(param)).';
+param(:,5)=index.';
+param(:,6)=(1:height(param)).';
 param=sortrows(param,1);
 param=sortrows(param,2);
+param=sortrows(param,3);
+
+H=zeros(Nt*K,K);
+gamma=zeros(K,K);
 
 for i=1:height(param)
     for d=0:D
         if(d==0)
             for m=1:K
-                gamma(m,m)=gamma_rec(Nb*param(i,1)+round((param(i,2)-bmin)/dbeta+1),m);
+                gamma(m,m)=gamma_rec(Nb*param(i,2)+round((param(i,3)-bmin)/dbeta+1),m);
             end
         else
             for m=1:K-d
-                gamma(m,m+d)=gamma_rec(Nb*param(i,1)+round((param(i,2)-bmin)/dbeta+1),(2*d-1)*K+m);
-                gamma(m+d,m)=gamma_rec(Nb*param(i,1)+round((param(i,2)-bmin)/dbeta+1),2*d*K+m);
+                gamma(m,m+d)=gamma_rec(Nb*param(i,2)+round((param(i,3)-bmin)/dbeta+1),(2*d-1)*K+m);
+                gamma(m+d,m)=gamma_rec(Nb*param(i,2)+round((param(i,3)-bmin)/dbeta+1),2*d*K+m);
             end
         end
     end
-    H=H+xind(param(i,5))...
-            *sparse(1:K,1:K,exp(-sqrt(-1)*2*pi*param(i,3)/T*[-K/2:K/2-1]))...
-            *sparse(gamma);
+    H(param(i,1)*K+1:(param(i,1)+1)*K,:)=H(param(i,1)*K+1:(param(i,1)+1)*K,:)...
+                                                                                    +xind(param(i,6))...
+                                                                                    *sparse(1:K,1:K,exp(-sqrt(-1)*2*pi*param(i,4)/T*[-K/2:K/2-1]))...
+                                                                                    *sparse(gamma);
 end
 
 % % % Gn=diff(G,param(1,1));
