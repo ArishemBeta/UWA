@@ -1,4 +1,4 @@
-function S_est=SIMO_LMMSE_Equalization(z,H,K,sc,Nr,Nt,MMode,nKr,N0)
+function S_est=MIMO_LMMSE_Equalization(z,H,K,sc,Nr,Nt,MMode,nKr,N0)
 
 if(strcmp(MMode,'QPSK'))
     S_bar=gpuArray.zeros(Nt*K,1);

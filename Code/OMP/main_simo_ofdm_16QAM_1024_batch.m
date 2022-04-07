@@ -143,7 +143,7 @@ for packet_idx= [1] %[1 2 3 4 5 6 8 11 14 20 23 26 29 32]
             P=sum(sum(abs(RX_block).^2))/((K+L)*Nr*Ns);
             N0=P/(1+SNR);
             tic
-            S_EstO=SIMO_LMMSE_Equalization(reshape(z,1,K*Nr),H,K,[1,1,1,1],Nr,Nt,'16QAM',0,N0);
+            S_EstO=MIMO_LMMSE_Equalization(reshape(z,1,K*Nr),H,K,[1,1,1,1],Nr,Nt,'16QAM',0,N0);
             toc
             SO=S_EstO.';
 
