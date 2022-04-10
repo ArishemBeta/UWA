@@ -1,10 +1,10 @@
-function H=OMP_test(z,Namp,B,K,sc_idx,block_symbol,bmin,bmax,dbeta,cfo,L,D,SNR)
+function H=OMP_MIMO_test(z,Namp,B,K,sc_idx,block_symbol,bmin,bmax,dbeta,cfo,L,D,SNR)
 % sparsity=Npa*(Namp+1);
-tz=zeros(1,K);
-tp=zeros(1,K);
-tz(sc_idx)=1;
-tp(sc_idx)=1;
-
+t=ones(1,K);
+% t=zeros(1,K);
+% t(sc_idx)=1;
+% t(max(sc_idx-1,1))=1;
+% t(sc_idx+1)=1;
 
 Nt=width(block_symbol);
 Nr=width(z);
@@ -13,13 +13,10 @@ gamma=zeros(K,K);
 
 T=K/B;
 deltaf=1/T;
-selector_z=zeros(K,K);
-selector_z(logical(eye(size(selector_z))))=tz;
-selector_p=zeros(K,K);
-selector_p(logical(eye(size(selector_p))))=tp;
-zp=selector_z*z;
-sp=selector_p*block_symbol;
-
+selector=zeros(K,K);
+selector(logical(eye(size(selector))))=t;
+zp=selector*z;
+sp=selector*block_symbol;
 delay_hat=1/B:1/(B):L/B;
 beta=bmin:dbeta:bmax;
 Np=length(delay_hat);                             %----------Np-----------
@@ -70,6 +67,7 @@ for nr=1:Nr
         end
     end
 
+
     xi=zeros(Nt*(Namp+1)*Np*Nb,1);
     index=[];
     k=1;
@@ -90,11 +88,9 @@ for nr=1:Nr
     %     k=k+1;
     % end
 
-    threshold=1/(1+SNR)*norm(cor,'fro');
+    threshold=0.1/(1+SNR)*norm(cor,'fro');
     while norm(cor,'fro')>threshold
-        if(k>Nb*Np*(Namp+1)) 
-            break; 
-        end
+        if(k>Nb*Np*(Namp+1)) break; end;
         [~,ind]=max(abs(cor));
         index=[index ind];
         Atemp=A(:,index);
@@ -127,7 +123,7 @@ for nr=1:Nr
                 end
             end
         end
-        param(i,1)=pos(i,1)-1;
+        param(i,1)=param(i,1);
         param(i,2)=pos(i,2)-1;
         param(i,3)=beta(pos(i,3));
         param(i,4)=delay_hat(pos(i,4));
@@ -139,6 +135,24 @@ for nr=1:Nr
     param=sortrows(param,3);
 
     Htemp=zeros(K,K);
+    i=0;
+%     while i<=height(param)
+%         i=i+1;
+%         if(i==1 || param(i,2)~=param(i-1,2) || param(i,3)~=param(i-1,3))
+%             for d=0:D
+%                 if(d==0)
+%                     gamma_val(1:K)=gamma_rec(Nb*param(i,2)+round((param(i,3)-bmin)/dbeta+1),1:K);
+%                 else
+%                     gamma_val((2*d-1)*K-(d-1)*d+1:2*d*K-d*d)=gamma_rec(Nb*param(i,2)+round((param(i,3)-bmin)/dbeta+1),(2*d-1)*K+1:2*d*K-d);
+%                     gamma_val(2*d*K-d*d+1:(2*d+1)*K-(d+1)*d)=gamma_rec(Nb*param(i,2)+round((param(i,3)-bmin)/dbeta+1),2*d*K+1:(2*d+1)*K-d);
+%                 end
+%             end
+%             gamma=sparse(gamma_pos(:,1),gamma_pos(:,2),gamma_val);
+%         end
+%         Htemp=Htemp+xind(param(i,6))...
+%                             *sparse(1:K,1:K,exp(-sqrt(-1)*2*pi*param(i,4)/T*[-K/2:K/2-1]))...
+%                             *gamma;
+%     end
 
     for i=1:height(param)
         if(i==1 || param(i,2)~=param(i-1,2) || param(i,3)~=param(i-1,3))

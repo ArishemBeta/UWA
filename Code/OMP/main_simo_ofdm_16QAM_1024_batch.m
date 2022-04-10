@@ -136,16 +136,16 @@ for packet_idx= [1] %[1 2 3 4 5 6 8 11 14 20 23 26 29 32]
 %             for i=1:Nr
 %                 H((i-1)*K+1:i*K,:)=OMP_MIMO(z(:,i),1,Fb,K,sc_idx,block_symbol.',-0.00010,0.00010,0.00001,-1,L,9,SNR);
 %             end
-            H=OMP_test(z,1,Fb,K,sc_idx,block_symbol.',-0.00010,0.00010,0.00001,-1,L,9,SNR);
+            H=OMP_test(z,1,Fb,K,sc_idx,block_symbol.',-0.00010,0.00000,0.00001,-1,L,4,SNR);
             toc
 %-------------均衡--------------
             %  S_EstO=((H'*H+N0*eye(K))\H'*z).';
             P=sum(sum(abs(RX_block).^2))/((K+L)*Nr*Ns);
             N0=P/(1+SNR);
             tic
-            S_EstO=MIMO_LMMSE_Equalization(reshape(z,1,K*Nr),H,K,[1,1,1,1],Nr,Nt,'16QAM',0,N0);
+            S_EstO=MIMO_LMMSE_Equalization(z,H,K,[1,1,1,1],Nr,Nt,'16QAM',0,N0,9);
             toc
-            SO=S_EstO.';
+            SO=S_EstO;
 
             Dec_CodBitO= randdeintrlv(demod_mqam(SO,16),0);
 
@@ -224,6 +224,13 @@ for packet_idx= [1] %[1 2 3 4 5 6 8 11 14 20 23 26 29 32]
 
             scatterplot(S_Est);
             title('LS',FontSize=20);
+            BER_cost=0;
+            symbol_err=block_symbol-S_Est;
+            for nt=1:Nt
+                for j=1:length(symbol_err)
+                    BER_cost=BER_cost+(symbol_err(nt,j)*conj(symbol_err(nt,j)));
+                end
+            end
 
             if(pilot_LLR)
                 %replace estimated LLs of pilot bits with their true LLs.

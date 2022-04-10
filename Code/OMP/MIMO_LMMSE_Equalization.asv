@@ -2,7 +2,7 @@ function S_est=MIMO_LMMSE_Equalization(z,H,K,sc,Nr,Nt,MMode,nKr,N0,D)
 
 z=reshape(z,Nr*K,1);
 S_est=(H'*H+N0*eye(Nt*K))\H'*z;
-S_est=reshape(S_est,K,Nt).';
+S_est=reshape(S_est,K,Nt).'
 
 % z=z.';
 % if(strcmp(MMode,'QPSK'))

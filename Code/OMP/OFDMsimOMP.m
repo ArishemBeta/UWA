@@ -4,7 +4,7 @@ close all;
 
 % parpool('local',16);
 
-MMode='16QAM';
+MMode='QPSK';
 K=1024*0.5^0;
 B=9765.625*0.5^0;
 ifOMP=1;
@@ -20,8 +20,8 @@ sc=[0,1,0,0,1,1,1,0];
 % sc=[1,1,1,1];
 nKr=length(find(sc==0))/length(sc);
 
-Nt=1;
-Nr=1;
+Nt=2;
+Nr=4;
 Ns=16;
 T214 = poly2trellis(4,[17 13]);
 tblen=12;               
@@ -35,10 +35,10 @@ Lms=8;                                      % length of channel (ms)
 L= min(fix(Lms*B/1000),length(sc_idx));     % length of channel
 Kg= 3*L;                                    % guard gap
 Nfrm=1;                                     % frame
-Nblock=10;                                  % block per frame
+Nblock=2;                                  % block per frame
 
 %------------generate Tx bits--------------
-P_bit=randi([0 1],1,Nbit_d*Nblock*Nfrm);
+P_bit=randi([0 1],1,Nbit_d*Nblock*Nfrm*Nt);
 % load P_bitQPSK.mat;
 bit_seq=reshape(P_bit,Nbit_d,length(P_bit)/(Nbit_d));
 
@@ -59,40 +59,43 @@ elseif (strcmp(MMode,'16QAM'))
 end
 
 %------------频域插零----------
-[Tx_sym_ins, Tx_sym]=Txsymbol_arrangement(data_sym_t,K,sc,Ns);
+[Tx_sym_ins, Tx_sym]=Txsymbol_arrangement(data_sym_t,K,sc,Ns,Nt);
 % scatterplot(data_sym_t(:,1));
 
 %------------IFFT--------------
 ifft_data=sqrt(height(Tx_sym_ins))*ifft(Tx_sym_ins);
 
 %------------ZP--------------
-Tx_block=[ifft_data;zeros(Kg*Ns,Nfrm*Nblock)];
+Tx_block=[ifft_data;zeros(Kg*Ns,Nfrm*Nblock*Nt)];
 
 %------------P/S--------------
-Tx_data=reshape(Tx_block,[],1).';
+Tx_data=reshape(Tx_block,[],Nt).';
 
 %------------转通带-----------
-for i=1:length(Tx_data)
-    Tx_data(i)=real(Tx_data(i)*(exp(sqrt(-1)*2*pi*13000*(i-1)/(B*Ns))));%
+for i=1:width(Tx_data)
+    Tx_data(:,i)=real(Tx_data(:,i)*(exp(sqrt(-1)*2*pi*13000*(i-1)/(B*Ns))));%
 end
+% Tx_data(2,:)=Tx_data(1,:);
         
 %------------channel--------------
 Npath=8;
-delay=[1,2.5,4,5,6,7,8,9,9,10,11,12,13,14,15,16];
-% doppler=[-0.002000,-0.002050,-0.00190,-0.001950,-0.00205000,-0.002100,-0.00200,-0.00000,...
-%     -0.00000,-0.00000,-0.00000,-0.00000,-0.00000,-0.00000,-0.00000,-0.00000];
-doppler=-3./(1500+randperm(61,Npath)-31);
-len=8;                                                      %ms
-res=0.01;                                                   %ms
-UWAchannel=UWAchannel_generation(Npath,Nblock*(K+Kg)/B,1/(Ns*B),len,res,delay(1:Npath),doppler(1:Npath));
-Rx_data=zeros(1,Nblock*(K+Kg)*Ns+L*Ns);
-for t=1:height(UWAchannel)
-    for p=1:Npath
-        if(round(t-UWAchannel(t,p*2)*Ns*B)<=0)
-            Rx_data(t)=0;
-        else
-            Rx_data(t)=Rx_data(t)+UWAchannel(t,p*2-1)*...%round(t-UWAchannel(t,p*2)*Ns)
-            Tx_data(round(t-UWAchannel(t,p*2)*Ns*B));
+Rx_data=zeros(Nr,Nblock*(K+Kg)*Ns+L*Ns);
+for nr=1:Nr
+    delay=0.5*rand(1,Npath)+[1:Npath];
+    % doppler=[-0.002000,-0.002050,-0.00190,-0.001950,-0.00205000,-0.002100,-0.00200,-0.00000,...
+    %     -0.00000,-0.00000,-0.00000,-0.00000,-0.00000,-0.00000,-0.00000,-0.00000];
+    doppler=-3./(1500+randperm(41,Npath)-21);
+    len=8;                                                      %ms
+    res=0.01;                                                %ms
+    UWAchannel=UWAchannel_generation(Npath,Nblock*(K+Kg)/B,1/(Ns*B),len,res,delay(1:Npath),doppler(1:Npath));
+    for t=1:height(UWAchannel)
+        for p=1:Npath
+            if(round(t-UWAchannel(t,p*2)*Ns*B)<=0)
+                Rx_data(nr,t)=0;
+            else
+                Rx_data(nr,t)=Rx_data(nr,t)+sum(UWAchannel(t,p*2-1)*...%round(t-UWAchannel(t,p*2)*Ns)
+                    Tx_data(:,round(t-UWAchannel(t,p*2)*Ns*B)));
+            end
         end
     end
 end
@@ -103,27 +106,23 @@ N00=sum(abs(noise).^2)/length(noise);
 
 %------------转基带-----------
 for i=1:length(Rx_data)
-    Rx_data(i)=Rx_data(i)*(exp(sqrt(-1)*2*pi*(-13000)*(i-1)/(B*Ns)));
+    Rx_data(:,i)=Rx_data(:,i)*(exp(sqrt(-1)*2*pi*(-13000)*(i-1)/(B*Ns)));
 end
-Rx_data=lowpass(Rx_data,B*0.5,B*Ns);
+Rx_data=lowpass(Rx_data.',B*0.5,B*Ns).';
 
 %------------S/P--------------
 doppler_scale=zeros(1,Nblock);
 cfo=zeros(1,Nblock);
 noise=[ ];
-% for i=1:Nblock
-%     noise=[noise, ];
-% end
-% N0=sum(abs(noise).^2)/((Kg-L-10));
 
 for nblk=1: 1
     nblk
 
     Noffset=(nblk-1)*(K+Kg)-floor(doppler_scale(max(1,nblk-1))*(K+Kg)*(nblk-1));
     Gap=Ns*Noffset;
-    block_symbol=Tx_sym(:,nblk).';
-    pilot_symbol=block_symbol(sc_idx);
-    block_bit=bit_seq(:,nblk).';
+    block_symbol=Tx_sym(:,nblk:Nblock:end).';
+    pilot_symbol=block_symbol(:,sc_idx);
+    block_bit=bit_seq(:,nblk:Nblock:end).';
     Rx_block=Rx_data(:,Gap+1:Gap+round((K+L)*Ns));%/(1-0.005)                             5~0.0005    30~0.003
     
     doppler_scale(nblk)=doppler(1);
@@ -139,9 +138,6 @@ for nblk=1: 1
             Rx_block(i,n)=Rx_block(i,n)*(exp(sqrt(-1)*2*pi*(-13000*doppler_scale(nblk))*(n-1)/(B*Ns)));
         end
     end
-    if(nKr)
-        cfo(nblk)=cfo_nullsubcarrier([-20:20],Rx_block,K,sc,B,Ns)+rand()-1;
-    end
     for i=1:Nr
         for n=1:length(Rx_block(i,:))
             Rx_block(i,n)=Rx_block(i,n)*(exp(sqrt(-1)*2*pi*(-cfo(nblk))*(n-1)/(B*Ns)));%48828.125
@@ -150,40 +146,43 @@ for nblk=1: 1
 
 %------------OMP------------
 % N0=sum(abs(Rx_data(:,Gap+(K+L+1)*Ns:Ns:Gap+(K+Kg-10)*Ns)).^2)/((Kg-L-10));
-P=sum(abs(Rx_block(:,1:Ns:(K)*Ns)).^2)/(K);
+P=sum(sum(abs(Rx_block(:,1:Ns:K*Ns)).^2))/(K*Nr);
 N0=P/(SNR+1);
 if(ifOMP)
-    yO=Rx_block(:,1: Ns: Ns*K);
-    olaO=Rx_block(:,1+K*Ns: Ns: (K+L-1)*Ns);
-    yO(:,1:L-1)=yO(:,1:L-1)+olaO(:,1:L-1);
+    yO=Rx_block(:,1: Ns: Ns*K).';
+    olaO=Rx_block(:,1+K*Ns: Ns: (K+L-1)*Ns).';
+    yO(1:L-1,:)=yO(1:L-1,:)+olaO(1:L-1,:);
 
-    z=(fft(yO)./sqrt(length(yO))).';
+    z=(fft(yO)./sqrt(height(yO)));
     tic
-    H=OMP(z,0,B,K,sc_idx,block_symbol.',-0.00005,0.00005,0.00001,cfo(nblk),L,1,SNR);
+    H=OMP_test(z,0,B,K,sc_idx,block_symbol.',-0.00010,0.00010,0.00001,cfo(nblk),L,4,SNR);
     toc
 %     S_EstO=((H'*H+N0*eye(K))\H'*z).';
     tic
-    S_EstO=SIMO_LMMSE_Equalization(z,H,K,sc,Nr,Nt,MMode,nKr,N0);
+    S_EstO=MIMO_LMMSE_Equalization(z,H,K,sc,Nr,Nt,MMode,nKr,N0/100);
     toc
-    SO=(diag(repmat(sc,1,K/length(sc)))*S_EstO).';
+    SO=(diag(repmat(sc,1,K/length(sc)))*S_EstO.').';
     SO(SO==0)=[];
+    SO=reshape(SO,Nt,[]);
+    scatterplot(SO(1,:));
+    title('OMP',FontSize=20);
 
     if (strcmp(MMode,'QPSK'))
         Dec_CodBitO= randdeintrlv(demod_qpsk(SO),0);
     elseif (strcmp(MMode,'16QAM'))
         Dec_CodBitO= randdeintrlv(demod_mqam(SO,16),0);
     end
-    Decod_InfoBitO= vitdec(Dec_CodBitO,T214,tblen,'cont','hard');
-    Decod_InfoBitO= Decod_InfoBitO(tblen+1: Nbit_d);
-    ErrNum1= sum(block_bit(1: Nbit_d-tblen)~=Decod_InfoBitO);
-    ErrNum2=sum(code_bitt(nblk,:)~=Dec_CodBitO);
-    ber_recO(nblk)= ErrNum1/(Nbit_d);
-    ber_recrawO(nblk)=ErrNum2/(Nbit_d/rate);
-    scatterplot(SO);
-    title('OMP',FontSize=20);
+    for nt=1:Nt
+        Decod_InfoBitO= vitdec(Dec_CodBitO(nt,:),T214,tblen,'cont','hard');
+        Decod_InfoBitO= Decod_InfoBitO(tblen+1: Nbit_d);
+        ErrNum1= sum(block_bit(nt,1: Nbit_d-tblen)~=Decod_InfoBitO);
+        ErrNum2=sum(code_bitt((nt-1)*Nblock+nblk,:)~=Dec_CodBitO(nt,:));
+        ber_recO(nt,nblk)= ErrNum1/(Nbit_d);
+        ber_recrawO(nt,nblk)=ErrNum2/(Nbit_d/rate);
+    end
 
     BER_costO=0;
-    symbol_errO=data_sym_t(:,nblk).'-SO;
+    symbol_errO=data_sym_t(:,nblk:Nblock:end).'-SO;
     for nt=1:Nt
         for k=1:length(symbol_errO)
             BER_costO=BER_costO+(symbol_errO(nt,k)*conj(symbol_errO(nt,k)));
@@ -210,46 +209,33 @@ end
     end
     S_Est_Iter= S_Est;%((k-1)*Nt+1: k*Nt,:)
 
-%     for nt= 1: Nt
-%         LLe_cod((nt-1)*2+1,:)= randdeintrlv(LLe_cod((nt-1)*2+1,:), 0); %interleaving before delivering to equalizer
-%         LLe_cod((nt-1)*2+2,:)= randdeintrlv(LLe_cod((nt-1)*2+2,:), 0);
-%         %perform MAP convolutional decoding with soft information fed back
-%         [LLR_info(nt,:) LLe_cod((nt-1)*2+1: nt*2,:)] = MAPConvDecoder_R1(LLe_cod((nt-1)*2+1: nt*2,:),Nbit_s);
-%         LLe_cod((nt-1)*2+1,:)= randintrlv(LLe_cod((nt-1)*2+1,:), 0); %interleaving before delivering to equalizer
-%         LLe_cod((nt-1)*2+2,:)= randintrlv(LLe_cod((nt-1)*2+2,:), 0);
-%         LLa_cod((nt-1)*2+1: nt*2,:)= LLe_cod((nt-1)*2+1: nt*2,:);
-%     end
-    for nt= 1: Nt
-%         Decod_InfoBit= LLR_info(nt,:)<0;
-%         ErrNum(nt)= sum(block_bit~=Decod_InfoBit);
-%         ber(nt)= ErrNum(nt)/Nbit_s;
+    S=(diag(repmat(sc,1,K/length(sc)))*S_Est.').';
+    S(S==0)=[];
+    S=reshape(S,Nt,[]);
+    scatterplot(S(1,:));
+    title('LS',FontSize=20);
 
-        S=(diag(repmat(sc,1,K/length(sc)))*S_Est(nt,:).').';
-        S(find(S==0))=[];
-        scatterplot(S);
-        title('LS',FontSize=20);
-
-        BER_cost=0;
-        symbol_err=data_sym_t(:,nblk).'-S;
-        for nt=1:Nt
-            for k=1:length(symbol_err)
-                BER_cost=BER_cost+(symbol_err(nt,k)*conj(symbol_err(nt,k)));
-            end
+    BER_cost=0;
+    symbol_err=data_sym_t(:,nblk:Nblock:end).'-S;
+    for nt=1:Nt
+        for k=1:length(symbol_err)
+            BER_cost=BER_cost+(symbol_err(nt,k)*conj(symbol_err(nt,k)));
         end
+    end
 
-        if (strcmp(MMode,'QPSK'))
-            Dec_CodBit= randdeintrlv(demod_qpsk(S),0);
-        elseif (strcmp(MMode,'16QAM'))
-            Dec_CodBit= randdeintrlv(demod_mqam(S,16),0);
-        end
+    if (strcmp(MMode,'QPSK'))
+        Dec_CodBit= randdeintrlv(demod_qpsk(S),0);
+    elseif (strcmp(MMode,'16QAM'))
+        Dec_CodBit= randdeintrlv(demod_mqam(S,16),0);
+    end
 
-        Decod_InfoBit1= vitdec(Dec_CodBit,T214,tblen,'cont','hard');
+    for nt=1:Nt
+        Decod_InfoBit1= vitdec(Dec_CodBit(nt,:),T214,tblen,'cont','hard');
         Decod_InfoBit1= Decod_InfoBit1(tblen+1: Nbit_d);
-        ErrNum1(nt)= sum(block_bit(1: Nbit_d-tblen)~=Decod_InfoBit1);
-        ErrNum2(nt)=sum(code_bitt(nblk,:)~=Dec_CodBit);
-        ber1(nt)= ErrNum1(nt)/(Nbit_d);
-        ber_rec(nblk)=ber1(nt);
-        ber_recraw(nblk)=ErrNum2(nt)/(Nbit_d/rate);
+        ErrNum1= sum(block_bit(nt,1: Nbit_d-tblen)~=Decod_InfoBit1);
+        ErrNum2=sum(code_bitt((nt-1)*Nblock+nblk,:)~=Dec_CodBit(nt,:));
+        ber_rec(nt,nblk)=ErrNum1/(Nbit_d);
+        ber_recraw(nt,nblk)=ErrNum2/(Nbit_d/rate);
     end
     
 end

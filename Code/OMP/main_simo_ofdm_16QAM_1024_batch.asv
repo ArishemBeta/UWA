@@ -29,7 +29,7 @@ Kg= 120;                %gap between OFDM symbol or between OFDM symbol and pilo
 sc_idx= [1:4:K];        %indices of subcarriers for channel estimation
 Nbit= K*Nbps*rate;      %number of information bits in one OFDM symbol
 Nrepeat= 12;             %number of OFDM symbols in each packet
-SNRdB= 25;              %signal-to-noise ratio in dB
+SNRdB= 30;              %signal-to-noise ratio in dB
 SNR= 10^(SNRdB/10);     %SNR in linear scale
 L= 80;                 %length of channel
 
@@ -65,9 +65,9 @@ for packet_idx= [1] %[1 2 3 4 5 6 8 11 14 20 23 26 29 32]
     for i=1:Nr
         RX_data_n(i,:)=interp1([0:length(RX_data(Chnn_idx(i),:))-1],RX_data(Chnn_idx(i),:),[0:855/956:length(RX_data(Chnn_idx(i),:))-1],'spline');
         %  plot(abs(RX_data_nn(1,:)));
-        RX_data_nn(i,:)=interp1((0:length(RX_data_n(i,:))-1),RX_data_n(i,:),(0:length(RX_data_n(i,:))-1)/(1+(Doppler(1))/13000),'spline');
+        RX_data_nn(i,:)=interp1((0:length(RX_data_n(i,:))-1),RX_data_n(i,:),(0:length(RX_data_n(i,:))-1)/(1+(Doppler(1)-0.5)/13000),'spline');
         for n=1:length(RX_data_nn(i,:))
-            RX_data_nn(i,n)=RX_data_nn(i,n)*(exp(sqrt(-1)*2*pi*(-13000*(Doppler(1))/13000)*(n-1)/48828.125));
+            RX_data_nn(i,n)=RX_data_nn(i,n)*(exp(sqrt(-1)*2*pi*(-13000*(Doppler(1)-0.5)/13000)*(n-1)/48828.125));
         end
 % RX_data_nn=RX_data_n;
     end
@@ -100,6 +100,7 @@ for packet_idx= [1] %[1 2 3 4 5 6 8 11 14 20 23 26 29 32]
         pilot_bit=block_bit(sc_idx);
         %-------initial channel estimation with pilots-------
 
+        shift=fliplr([-11:0]);
         Gap= Gap+(Npilot+Kg)*Ns;
         if(nblk>1)
             Gap=Gap+shift(nblk);
@@ -132,18 +133,19 @@ for packet_idx= [1] %[1 2 3 4 5 6 8 11 14 20 23 26 29 32]
             z=(fft(yO)./sqrt(height(yO)));
             H=zeros(K*Nr,K);
             tic
-            for i=1:Nr
-                H((i-1)*K+1:i*K,:)=OMP(z(:,i),2,Fb,K,sc_idx,block_symbol.',-0.00020,0.00020,0.00001,-1,L,8,SNR);
-            end
+%             for i=1:Nr
+%                 H((i-1)*K+1:i*K,:)=OMP_MIMO(z(:,i),1,Fb,K,sc_idx,block_symbol.',-0.00010,0.00010,0.00001,-1,L,9,SNR);
+%             end
+            H=OMP_test(z,1,Fb,K,sc_idx,block_symbol.',-0.00010,0.00000,0.00001,-1,L,4,SNR);
             toc
 %-------------均衡--------------
             %  S_EstO=((H'*H+N0*eye(K))\H'*z).';
             P=sum(sum(abs(RX_block).^2))/((K+L)*Nr*Ns);
             N0=P/(1+SNR);
             tic
-            S_EstO=SIMO_LMMSE_Equalization(reshape(z,1,K*Nr),H,K,[1,1,1,1],Nr,Nt,'16QAM',0,N0);
+            S_EstO=MIMO_LMMSE_Equalization(z,H,K,[1,1,1,1],Nr,Nt,'16QAM',0,N0,9);
             toc
-            SO=S_EstO.';
+            SO=S_EstO;
 
             Dec_CodBitO= randdeintrlv(demod_mqam(SO,16),0);
 
@@ -222,6 +224,13 @@ for packet_idx= [1] %[1 2 3 4 5 6 8 11 14 20 23 26 29 32]
 
             scatterplot(S_Est);
             title('LS',FontSize=20);
+            BER_cost=0;
+            symbol_err=block_symbol-S_Est;
+            for nt=1:Nt
+                for j=1:length(symbol_err)
+                    BER_cost=BER_cost+(symbol_err(nt,j)*conj(symbol_err(nt,j)));
+                end
+            end
 
             if(pilot_LLR)
                 %replace estimated LLs of pilot bits with their true LLs.

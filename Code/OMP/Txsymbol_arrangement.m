@@ -1,4 +1,4 @@
-function [Tx_sym_insert, Tx_sym]=Txsymbol_arrangement(data_sym,K,sc,Ns)
+function [Tx_sym_insert, Tx_sym]=Txsymbol_arrangement(data_sym,K,sc,Ns,Nt)
 l=length(sc);
 g=K/l;
 Tx_sym_insert=zeros(K*Ns,width(data_sym));

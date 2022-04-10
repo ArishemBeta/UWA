@@ -21,4 +21,4 @@ for m=1:K
                             *f_m'...
                             *(z-H*S_bar);
 end
-S_est=gather(S_est);
+S_est=gather(S_est).';

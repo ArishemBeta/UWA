@@ -288,9 +288,9 @@ end
 % % % %     H=H+xind(i)*diag(exp(-sqrt(-1)*2*pi*param(i,3)/T*[-K/2:K/2-1]))*gamma;
 % % % % end
 
-% figure();
-% image(abs(H),'CDataMapping','scaled');
-% colorbar;
+figure();
+image(abs(H),'CDataMapping','scaled');
+colorbar;
 
 return
 
