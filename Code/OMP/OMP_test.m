@@ -40,33 +40,34 @@ for k=1:(Namp+1)*Nb
     end
 end
 
-for nr=1:Nr
-    gamma_pos=zeros((2*D+1)*K-D*(D+1),2);
-    gamma_val=zeros((2*D+1)*K-D*(D+1),1);
-    for n=0:Namp
-        for b=1:Nb
-            for d=0:D
-                if(d==0)
-                    gamma_pos(1:K,:)=[1:K;1:K].';
-                    gamma_val(1:K)=gamma_rec(Nb*n+b,1:K);
-                else
-                    gamma_pos((2*d-1)*K-(d-1)*d+1:2*d*K-d*d,:)=[1:K-d;d+1:K].';
-                    gamma_pos(2*d*K-d*d+1:(2*d+1)*K-(d+1)*d,:)=[d+1:K;1:K-d].';
-                    gamma_val((2*d-1)*K-(d-1)*d+1:2*d*K-d*d)=gamma_rec(Nb*n+b,(2*d-1)*K+1:2*d*K-d);
-                    gamma_val(2*d*K-d*d+1:(2*d+1)*K-(d+1)*d)=gamma_rec(Nb*n+b,2*d*K+1:(2*d+1)*K-d);
-                end
+
+gamma_pos=zeros((2*D+1)*K-D*(D+1),2);
+gamma_val=zeros((2*D+1)*K-D*(D+1),1);
+for n=0:Namp
+    for b=1:Nb
+        for d=0:D
+            if(d==0)
+                gamma_pos(1:K,:)=[1:K;1:K].';
+                gamma_val(1:K)=gamma_rec(Nb*n+b,1:K);
+            else
+                gamma_pos((2*d-1)*K-(d-1)*d+1:2*d*K-d*d,:)=[1:K-d;d+1:K].';
+                gamma_pos(2*d*K-d*d+1:(2*d+1)*K-(d+1)*d,:)=[d+1:K;1:K-d].';
+                gamma_val((2*d-1)*K-(d-1)*d+1:2*d*K-d*d)=gamma_rec(Nb*n+b,(2*d-1)*K+1:2*d*K-d);
+                gamma_val(2*d*K-d*d+1:(2*d+1)*K-(d+1)*d)=gamma_rec(Nb*n+b,2*d*K+1:(2*d+1)*K-d);
             end
-            gamma=sparse(gamma_pos(:,1),gamma_pos(:,2),gamma_val);
-            for nt=1:Nt
-                gamma_sp=gamma*sp(:,nt);
-                for p=1:Np
-                    A(:,(nt-1)*(Namp+1)*Np*Nb+n*Np*Nb+(b-1)*Np+p)=sparse(1:K,1:K,exp(-sqrt(-1)*2*pi*delay_hat(p)*deltaf*[-K/2:K/2-1]))...
-                        *gamma_sp;
-                end
+        end
+        gamma=sparse(gamma_pos(:,1),gamma_pos(:,2),gamma_val);
+        for nt=1:Nt
+            gamma_sp=gamma*sp(:,nt);
+            for p=1:Np
+                A(:,(nt-1)*(Namp+1)*Np*Nb+n*Np*Nb+(b-1)*Np+p)=sparse(1:K,1:K,exp(-sqrt(-1)*2*pi*delay_hat(p)*deltaf*[-K/2:K/2-1]))...
+                    *gamma_sp;
             end
         end
     end
+end
 
+for nr=1:Nr
     xi=zeros(Nt*(Namp+1)*Np*Nb,1);
     index=[];
     k=1;
@@ -131,9 +132,7 @@ for nr=1:Nr
     end
     param(:,5)=index.';
     param(:,6)=(1:height(param)).';
-    param=sortrows(param,1);
-    param=sortrows(param,2);
-    param=sortrows(param,3);
+    param=sortrows(param,[1,2,3]);
 
     Htemp=zeros(K,K);
 

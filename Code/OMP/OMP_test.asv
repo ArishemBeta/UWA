@@ -1,10 +1,7 @@
 function H=OMP_test(z,Namp,B,K,sc_idx,block_symbol,bmin,bmax,dbeta,cfo,L,D,SNR)
 % sparsity=Npa*(Namp+1);
-tz=zeros(1,K);
-tp=zeros(1,K);
-tz(sc_idx)=1;
-tp(sc_idx)=1;
-
+tz=ones(1,K);
+tp=ones(1,K);
 
 Nt=width(block_symbol);
 Nr=width(z);
@@ -43,7 +40,7 @@ for k=1:(Namp+1)*Nb
     end
 end
 
-for nr=1:Nr
+
     gamma_pos=zeros((2*D+1)*K-D*(D+1),2);
     gamma_val=zeros((2*D+1)*K-D*(D+1),1);
     for n=0:Namp
@@ -70,6 +67,7 @@ for nr=1:Nr
         end
     end
 
+for nr=1:Nr
     xi=zeros(Nt*(Namp+1)*Np*Nb,1);
     index=[];
     k=1;
@@ -134,9 +132,7 @@ for nr=1:Nr
     end
     param(:,5)=index.';
     param(:,6)=(1:height(param)).';
-    param=sortrows(param,1);
-    param=sortrows(param,2);
-    param=sortrows(param,3);
+    param=sortrows(param,[1,2,3]);
 
     Htemp=zeros(K,K);
 

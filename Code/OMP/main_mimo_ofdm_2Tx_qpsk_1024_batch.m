@@ -35,9 +35,9 @@ L= 100;                 %length of channel
 
 % Chnn_idx=[1];                              %01 phone
 % Chnn_idx=[1 11];                           %02 phones
-%Chnn_idx=[1 3 7 11];                      %04 phones
+% Chnn_idx=[1 3 7 11];                      %04 phones
 % Chnn_idx=[1 3 5 7 9 11];                  %06 phones
-%Chnn_idx=[1 3 5 6 7 9 11 12];             %08 phones
+% Chnn_idx=[1 3 5 6 7 9 11 12];             %08 phones
 % Chnn_idx=[1 3 4 5 6 7 9 10 11 12];        %10 phones
 Chnn_idx=[1:12];                          %12 phones
 Nr= length(Chnn_idx);   %# of receive hydrophones
@@ -102,9 +102,9 @@ for packet_idx= [1] %[1 2 3 4 5 6 8 11 14 20 23 26 29 32]
             yO(1:L-1,:)=(yO(1:L-1,:)+olaO(1:L-1,:));
 
             z=(fft(yO)./sqrt(height(yO)));
-            H=zeros(K*Nr,K*Nt);
+            D=4;
             tic
-            H=OMP_test(z,0,Fb,K,sc_idx,block_symbol.',-0.00005,0.00005,0.00001,-1,L,0,SNR);
+            H=OMP_test(z,0,Fb,K,sc_idx,block_symbol.',-0.00005,0.00005,0.00001,-1,L,D,SNR);
             toc
             %-------------均衡--------------
             %  S_EstO=((H'*H+N0*eye(K))\H'*z).';
@@ -112,12 +112,11 @@ for packet_idx= [1] %[1 2 3 4 5 6 8 11 14 20 23 26 29 32]
             N0=P/(1+SNR);
             tic
 %             S_EstO=MIMO_LMMSE_Equalization(reshape(z,1,K*Nr),H,K,[1,1,1,1],Nr,Nt,'QPSK',0,N0);
-            S_EstO=MIMO_LMMSE_Equalization(z.',H,K,[1,1,1,1],Nr,Nt,'QPSK',0,N0,4);
+            S_EstO=MIMO_LMMSE_Equalization(z,H,K,[1,1,1,1],Nr,Nt,'QPSK',0,N0,D);
             toc
             SO=S_EstO;
             for  nt=1:Nt
                 Dec_CodBitO= randdeintrlv(demod_qpsk(SO(nt,:)),0);
-
                 Decod_InfoBitO= vitdec(Dec_CodBitO,T214,tblen,'cont','hard');
                 Decod_InfoBitO= Decod_InfoBitO(tblen+1: Nbit);
                 ErrNum1= sum(Bitstream_ofdm_qpsk_1024(nt,(nblk-1)*K+1: nblk*K-tblen)~=Decod_InfoBitO);
@@ -211,6 +210,7 @@ for packet_idx= [1] %[1 2 3 4 5 6 8 11 14 20 23 26 29 32]
             end
             S_Est_Iter((k-1)*Nt+1: k*Nt,:)= S_Est;
             scatterplot(S_Est(1,:));
+            title('LS',FontSize=20);
             
             if(pilot_LLR)
                 %replace estimated LLs of pilot bits with their true LLs.
