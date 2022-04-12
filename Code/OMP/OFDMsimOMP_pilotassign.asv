@@ -8,60 +8,68 @@ MMode='QPSK';
 K=1024*0.5^0;
 B=9765.625*0.5^0;
 ifOMP=1;
-% K=1024;
-% B=9765.625;
 
 if(strcmp(MMode,'QPSK'))
     Nbps=2;
 elseif(strcmp(MMode,'16QAM'))
     Nbps=4;
 end
-sc=[0,1,0,0,1,1,1,0];
+pattern=[0,2,0,0,1,1,1,0;
+                    0,0,2,0,1,1,1,0].';
 % sc=[1,1,1,1];
-nKr=length(find(sc==0))/length(sc);
-pKr=length(find(sc==2))/length(sc);
-dKr=1-Nkr-pKr;
+lp=height(pattern);
+nKr=length(find(pattern(:,1)==0))/lp;
+pKr=length(find(pattern(:,1)==2))/lp;
+dKr=1-nKr-pKr;
 
-Nt=2;
+Nt=width(pattern);
 Nr=8;
 Ns=16;
+sc_idx=repmat(mod(find(pattern==2),lp),[1,K/lp])+repmat([0:lp:K-1],[Nt,1]);
+
 T214 = poly2trellis(4,[17 13]);
 tblen=12;               
-rate= 1/2;              
-sc_idx= 2:8:K;                            % pilot index
+rate= 1/2;         
 Nbit_s= K*Nbps*rate;                        % bits in an OFDM symbol including null subcarriers
-Nbit_d=Nbit_s*(1-nKr);                      % useful bits in an OFDM symbol
+Nbit_d=Nbit_s*dKr;                      % useful bits in an OFDM symbol
+Nbit_p=Nbit_s*pKr;
+
 SNRdB= 10;              
 SNR= 10^(SNRdB/10);
+
 Lms=8;                                      % length of channel (ms)
-L= min(fix(Lms*B/1000),length(sc_idx));     % length of channel
+L= min(fix(Lms*B/1000),width(sc_idx));     % length of channel
 Kg= 3*L;                                    % guard gap
 Nfrm=1;                                     % frame
 Nblock=2;                                  % block per frame
 
 %------------generate Tx bits--------------
-P_bit=randi([0 1],1,Nbit_d*Nblock*Nfrm*Nt);
+Data_bit=randi([0 1],1,Nbit_d*Nblock*Nfrm*Nt);
+Pilot_bit=randi([0 1],1,Nbit_p*Nblock*Nfrm*Nt);
 % load P_bitQPSK.mat;
-bit_seq=reshape(P_bit,Nbit_d,length(P_bit)/(Nbit_d));
+data_seq=reshape(Data_bit,Nbit_d,length(Data_bit)/(Nbit_d));
+pilot_seq=reshape(Pilot_bit,Nbit_p,length(Pilot_bit)/(Nbit_p));
 
 %------------channel coding--------------
-for i=1:length(P_bit)/(Nbit_d)
-    code_bitt(i,:)=convenc(bit_seq(:,i),T214);
-    code_bit(i,:)=randintrlv(code_bitt(i,:),0);
+for i=1:width(data_seq)
+    code_bitt_d(i,:)=convenc(data_seq(:,i),T214);
+    code_bitt_p(i,:)=convenc(pilot_seq(:,i),T214);
+    code_bit_d(i,:)=randintrlv(code_bitt_d(i,:),0);
 end
 
 
 if (strcmp(MMode,'QPSK'))
-    data_sym_t=qpsk(code_bit).';
+    data_sym_t=qpsk(code_bit_d).';
+
 elseif (strcmp(MMode,'16QAM'))
     for i=1:Nblock*Nt
-        data_sym_t(i,:)=mqam(code_bit(i,:),16);
+        data_sym_t(i,:)=mqam(code_bit_d(i,:),16);
     end
     data_sym_t=data_sym_t.';
 end
 
 %------------频域插零----------
-[Tx_sym_ins, Tx_sym]=Txsymbol_arrangement(data_sym_t,K,sc,Ns,Nt);
+[Tx_sym_ins, Tx_sym]=Txsymbol_arrangement(data_sym_t,K,pattern,Ns,Nt);
 % scatterplot(data_sym_t(:,1));
 
 %------------IFFT--------------
@@ -126,7 +134,7 @@ for nblk=1: 1
     Gap=Ns*Noffset;
     block_symbol=Tx_sym(:,nblk:Nblock:end).';
     pilot_symbol=block_symbol(:,sc_idx);
-    block_bit=bit_seq(:,nblk:Nblock:end).';
+    block_bit=data_seq(:,nblk:Nblock:end).';
     Rx_block=Rx_data(:,Gap+1:Gap+round((K+L)*Ns));%/(1-0.005)                             5~0.0005    30~0.003
     
     doppler_scale(nblk)=doppler(1);
@@ -163,9 +171,9 @@ if(ifOMP)
     toc
 %     S_EstO=((H'*H+N0*eye(K))\H'*z).';
     tic
-    S_EstO=MIMO_LMMSE_Equalization(z,H,K,sc,Nr,Nt,MMode,nKr,N0);
+    S_EstO=MIMO_LMMSE_Equalization(z,H,K,pattern,Nr,Nt,MMode,nKr,N0);
     toc
-    SO=(diag(repmat(sc,1,K/length(sc)))*S_EstO.').';
+    SO=(diag(repmat(pattern,1,K/lp))*S_EstO.').';
     SO(SO==0)=[];
     SO=reshape(SO,Nt,[]);
     scatterplot(SO(1,:));
@@ -180,7 +188,7 @@ if(ifOMP)
         Decod_InfoBitO= vitdec(Dec_CodBitO,T214,tblen,'cont','hard');
         Decod_InfoBitO= Decod_InfoBitO(tblen+1: Nbit_d);
         ErrNum1= sum(block_bit(nt,1: Nbit_d-tblen)~=Decod_InfoBitO);
-        ErrNum2=sum(code_bitt((nt-1)*Nblock+nblk,:)~=Dec_CodBitO);
+        ErrNum2=sum(code_bitt_d((nt-1)*Nblock+nblk,:)~=Dec_CodBitO);
         ber_recO(nt,nblk)= ErrNum1/(Nbit_d);
         ber_recrawO(nt,nblk)=ErrNum2/(Nbit_d/rate);
     end
@@ -213,7 +221,7 @@ end
     end
     S_Est_Iter= S_Est;%((k-1)*Nt+1: k*Nt,:)
 
-    S=(diag(repmat(sc,1,K/length(sc)))*S_Est.').';
+    S=(diag(repmat(pattern,1,K/lp))*S_Est.').';
     S(S==0)=[];
     S=reshape(S,Nt,[]);
     scatterplot(S(1,:));
@@ -237,7 +245,7 @@ end
         Decod_InfoBit1= vitdec(Dec_CodBit,T214,tblen,'cont','hard');
         Decod_InfoBit1= Decod_InfoBit1(tblen+1: Nbit_d);
         ErrNum1= sum(block_bit(nt,1: Nbit_d-tblen)~=Decod_InfoBit1);
-        ErrNum2=sum(code_bitt((nt-1)*Nblock+nblk,:)~=Dec_CodBit);
+        ErrNum2=sum(code_bitt_d((nt-1)*Nblock+nblk,:)~=Dec_CodBit);
         ber_rec(nt,nblk)=ErrNum1/(Nbit_d);
         ber_recraw(nt,nblk)=ErrNum2/(Nbit_d/rate);
     end

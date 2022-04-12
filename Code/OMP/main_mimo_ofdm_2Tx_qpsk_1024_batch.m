@@ -6,7 +6,6 @@ clc
 clear all
 close all
 
-
 addpath DopplerScaleEstimation/Code/RXSyncData_SPACE08/2Tx_OFDM  %save Sync BB signal
 addpath DopplerScaleEstimation/Code/RefSig %LFM, RRC filter etc.
 addpath DopplerScaleEstimation/Code/Turbo_OFDM_QPSK_2Tx_28May11
@@ -29,7 +28,7 @@ sc_idx= [1:4:K];        %indices of subcarriers for channel estimation
 Nbit= K*Nbps*rate;      %number of information bits in one OFDM symbol
 Nrepeat= 8;             %number of OFDM symbols in each packet
 
-SNRdB= 10;              %signal-to-noise ratio in dB
+SNRdB= 15;              %signal-to-noise ratio in dB
 SNR= 10^(SNRdB/10);     %SNR in linear scale
 L= 100;                 %length of channel
 %Ndata= 45000;           %number of samples in K=1024 segment

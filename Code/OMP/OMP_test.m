@@ -158,8 +158,8 @@ for nr=1:Nr
     end
 end
 
-figure();
-image(abs(H),'CDataMapping','scaled');
-colorbar;
+% figure();
+% image(abs(H),'CDataMapping','scaled');
+% colorbar;
 
 return
