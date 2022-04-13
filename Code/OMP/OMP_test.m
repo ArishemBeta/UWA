@@ -1,21 +1,38 @@
 function H=OMP_test(z,Namp,B,K,sc_idx,block_symbol,bmin,bmax,dbeta,cfo,L,D,SNR)
 % sparsity=Npa*(Namp+1);
-tz=ones(1,K);
-tp=ones(1,K);
-
 Nt=width(block_symbol);
 Nr=width(z);
 H=zeros(Nr*K,Nt*K);
 gamma=zeros(K,K);
-
 T=K/B;
 deltaf=1/T;
+
+% tz=ones(1,K);
+% tp=ones(1,K);
+% selector_z=zeros(K,K);
+% selector_z(logical(eye(size(selector_z))))=tz;
+% selector_p=zeros(K,K);
+% selector_p(logical(eye(size(selector_p))))=tp;
+% zp=selector_z*z;
+% sp=selector_p*block_symbol;
+
+tz=zeros(K,1);
+tp=zeros(K,Nt);
 selector_z=zeros(K,K);
-selector_z(logical(eye(size(selector_z))))=tz;
 selector_p=zeros(K,K);
-selector_p(logical(eye(size(selector_p))))=tp;
+sp=zeros(K,Nt);
+for nt=1:Nt
+    for d=0:D
+        tz(max(sc_idx(:,nt)-d,1))=1;
+        tz(min(sc_idx(:,nt)+d,K))=1;
+        tp(max(sc_idx(:,nt)-d,1),nt)=1;
+        tp(min(sc_idx(:,nt)+d,K),nt)=1;
+    end
+    selector_p(logical(eye(size(selector_p))))=tp(:,nt);
+    sp(:,nt)=selector_p*block_symbol(:,nt);
+end
+selector_z(logical(eye(size(selector_z))))=tz;
 zp=selector_z*z;
-sp=selector_p*block_symbol;
 
 delay_hat=1/B:1/(B):L/B;
 beta=bmin:dbeta:bmax;

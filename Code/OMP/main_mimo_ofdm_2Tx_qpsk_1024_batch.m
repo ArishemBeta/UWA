@@ -28,7 +28,7 @@ sc_idx= [1:4:K];        %indices of subcarriers for channel estimation
 Nbit= K*Nbps*rate;      %number of information bits in one OFDM symbol
 Nrepeat= 8;             %number of OFDM symbols in each packet
 
-SNRdB= 15;              %signal-to-noise ratio in dB
+SNRdB= 10;              %signal-to-noise ratio in dB
 SNR= 10^(SNRdB/10);     %SNR in linear scale
 L= 100;                 %length of channel
 %Ndata= 45000;           %number of samples in K=1024 segment
@@ -102,9 +102,9 @@ for packet_idx= [1] %[1 2 3 4 5 6 8 11 14 20 23 26 29 32]
             yO(1:L-1,:)=(yO(1:L-1,:)+olaO(1:L-1,:));
 
             z=(fft(yO)./sqrt(height(yO)));
-            D=4;
+            D=2;
             tic
-            H=OMP_test(z,0,Fb,K,sc_idx,block_symbol.',-0.00005,0.00005,0.00001,-1,L,D,SNR);
+            H=OMP_test(z,0,Fb,K,[sc_idx;sc_idx].',block_symbol.',-0.00005,0.00005,0.00001,-1,L,D,SNR);
             toc
             %-------------均衡--------------
             %  S_EstO=((H'*H+N0*eye(K))\H'*z).';

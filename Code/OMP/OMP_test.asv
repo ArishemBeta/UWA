@@ -1,21 +1,28 @@
 function H=OMP_test(z,Namp,B,K,sc_idx,block_symbol,bmin,bmax,dbeta,cfo,L,D,SNR)
 % sparsity=Npa*(Namp+1);
-tz=ones(1,K);
-tp=ones(1,K);
-
 Nt=width(block_symbol);
 Nr=width(z);
 H=zeros(Nr*K,Nt*K);
 gamma=zeros(K,K);
-
 T=K/B;
 deltaf=1/T;
+
+% tz=ones(1,K);
+% tp=ones(1,K);
+tz=zeros(K,1);
+tp=zeros(K,Nt);
 selector_z=zeros(K,K);
-selector_z(logical(eye(size(selector_z))))=tz;
 selector_p=zeros(K,K);
-selector_p(logical(eye(size(selector_p))))=tp;
+sp=zeros(K,Nt);
+for nt=1:Nt
+    tz(sc_idx(:,nt))=1;
+    
+    tp(sc_idx(:,nt),nt)=1;
+    selector_p(logical(eye(size(selector_p))))=tp(:,nt);
+    sp(:,nt)=selector_p*block_symbol(:,nt);
+end
+selector_z(logical(eye(size(selector_z))))=tz;
 zp=selector_z*z;
-sp=selector_p*block_symbol;
 
 delay_hat=1/B:1/(B):L/B;
 beta=bmin:dbeta:bmax;
@@ -41,31 +48,31 @@ for k=1:(Namp+1)*Nb
 end
 
 
-    gamma_pos=zeros((2*D+1)*K-D*(D+1),2);
-    gamma_val=zeros((2*D+1)*K-D*(D+1),1);
-    for n=0:Namp
-        for b=1:Nb
-            for d=0:D
-                if(d==0)
-                    gamma_pos(1:K,:)=[1:K;1:K].';
-                    gamma_val(1:K)=gamma_rec(Nb*n+b,1:K);
-                else
-                    gamma_pos((2*d-1)*K-(d-1)*d+1:2*d*K-d*d,:)=[1:K-d;d+1:K].';
-                    gamma_pos(2*d*K-d*d+1:(2*d+1)*K-(d+1)*d,:)=[d+1:K;1:K-d].';
-                    gamma_val((2*d-1)*K-(d-1)*d+1:2*d*K-d*d)=gamma_rec(Nb*n+b,(2*d-1)*K+1:2*d*K-d);
-                    gamma_val(2*d*K-d*d+1:(2*d+1)*K-(d+1)*d)=gamma_rec(Nb*n+b,2*d*K+1:(2*d+1)*K-d);
-                end
+gamma_pos=zeros((2*D+1)*K-D*(D+1),2);
+gamma_val=zeros((2*D+1)*K-D*(D+1),1);
+for n=0:Namp
+    for b=1:Nb
+        for d=0:D
+            if(d==0)
+                gamma_pos(1:K,:)=[1:K;1:K].';
+                gamma_val(1:K)=gamma_rec(Nb*n+b,1:K);
+            else
+                gamma_pos((2*d-1)*K-(d-1)*d+1:2*d*K-d*d,:)=[1:K-d;d+1:K].';
+                gamma_pos(2*d*K-d*d+1:(2*d+1)*K-(d+1)*d,:)=[d+1:K;1:K-d].';
+                gamma_val((2*d-1)*K-(d-1)*d+1:2*d*K-d*d)=gamma_rec(Nb*n+b,(2*d-1)*K+1:2*d*K-d);
+                gamma_val(2*d*K-d*d+1:(2*d+1)*K-(d+1)*d)=gamma_rec(Nb*n+b,2*d*K+1:(2*d+1)*K-d);
             end
-            gamma=sparse(gamma_pos(:,1),gamma_pos(:,2),gamma_val);
-            for nt=1:Nt
-                gamma_sp=gamma*sp(:,nt);
-                for p=1:Np
-                    A(:,(nt-1)*(Namp+1)*Np*Nb+n*Np*Nb+(b-1)*Np+p)=sparse(1:K,1:K,exp(-sqrt(-1)*2*pi*delay_hat(p)*deltaf*[-K/2:K/2-1]))...
-                        *gamma_sp;
-                end
+        end
+        gamma=sparse(gamma_pos(:,1),gamma_pos(:,2),gamma_val);
+        for nt=1:Nt
+            gamma_sp=gamma*sp(:,nt);
+            for p=1:Np
+                A(:,(nt-1)*(Namp+1)*Np*Nb+n*Np*Nb+(b-1)*Np+p)=sparse(1:K,1:K,exp(-sqrt(-1)*2*pi*delay_hat(p)*deltaf*[-K/2:K/2-1]))...
+                    *gamma_sp;
             end
         end
     end
+end
 
 for nr=1:Nr
     xi=zeros(Nt*(Namp+1)*Np*Nb,1);
@@ -158,8 +165,8 @@ for nr=1:Nr
     end
 end
 
-figure();
-image(abs(H),'CDataMapping','scaled');
-colorbar;
+% figure();
+% image(abs(H),'CDataMapping','scaled');
+% colorbar;
 
 return

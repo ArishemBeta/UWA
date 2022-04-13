@@ -8,13 +8,14 @@ MMode='QPSK';
 K=1024*0.5^0;
 B=9765.625*0.5^0;
 ifOMP=1;
+ifLS=0;
 
 if(strcmp(MMode,'QPSK'))
     Nbps=2;
 elseif(strcmp(MMode,'16QAM'))
     Nbps=4;
 end
-pattern=[0,2,0,0,1,1,1,0;
+pattern=[2,0,0,0,1,1,1,0
                     0,0,2,0,1,1,1,0].';
 % sc=[1,1,1,1];
 lp=height(pattern);
@@ -47,29 +48,30 @@ Nblock=2;                                  % block per frame
 Data_bit=randi([0 1],1,Nbit_d*Nblock*Nfrm*Nt);
 Pilot_bit=randi([0 1],1,Nbit_p*Nblock*Nfrm*Nt);
 % load P_bitQPSK.mat;
-data_seq=reshape(Data_bit,Nbit_d,length(Data_bit)/(Nbit_d));
-pilot_seq=reshape(Pilot_bit,Nbit_p,length(Pilot_bit)/(Nbit_p));
+data_seq=reshape(Data_bit,Nbit_d,Nblock*Nfrm*Nt);
+pilot_seq=reshape(Pilot_bit,Nbit_p,Nblock*Nfrm*Nt);
 
 %------------channel coding--------------
 for i=1:width(data_seq)
     code_bitt_d(i,:)=convenc(data_seq(:,i),T214);
     code_bitt_p(i,:)=convenc(pilot_seq(:,i),T214);
     code_bit_d(i,:)=randintrlv(code_bitt_d(i,:),0);
+    code_bit_p(i,:)=randintrlv(code_bitt_p(i,:),0);
 end
-
 
 if (strcmp(MMode,'QPSK'))
     data_sym_t=qpsk(code_bit_d).';
-
+    pilot_sym_t=qpsk(code_bit_p).';
 elseif (strcmp(MMode,'16QAM'))
     for i=1:Nblock*Nt
         data_sym_t(i,:)=mqam(code_bit_d(i,:),16);
+        pilot_sym_t(i,:)=mqam(code_bit_p(i,:),16);
     end
     data_sym_t=data_sym_t.';
 end
 
 %------------频域插零----------
-[Tx_sym_ins, Tx_sym]=Txsymbol_arrangement(data_sym_t,K,pattern,Ns,Nt);
+[Tx_sym_ins, Tx_sym]=Txsymbol_arrangement(data_sym_t,pilot_sym_t,K,pattern.',Ns,Nblock);
 % scatterplot(data_sym_t(:,1));
 
 %------------IFFT--------------
@@ -85,7 +87,6 @@ Tx_data=reshape(Tx_block,[],Nt).';
 for i=1:width(Tx_data)
     Tx_data(:,i)=real(Tx_data(:,i)*(exp(sqrt(-1)*2*pi*13000*(i-1)/(B*Ns))));%
 end
-% Tx_data(2,:)=Tx_data(1,:);
         
 %------------channel--------------
 Npath=8;
@@ -132,9 +133,10 @@ for nblk=1: 1
 
     Noffset=(nblk-1)*(K+Kg)-floor(doppler_scale(max(1,nblk-1))*(K+Kg)*(nblk-1));
     Gap=Ns*Noffset;
-    block_symbol=Tx_sym(:,nblk:Nblock:end).';
-    pilot_symbol=block_symbol(:,sc_idx);
-    block_bit=data_seq(:,nblk:Nblock:end).';
+    block_symbol=Tx_sym(:,nblk:Nblock:end);
+    pilot_symbol=block_symbol(sc_idx.').';
+    block_symbol=block_symbol.';
+    data_bit=data_seq(:,nblk:Nblock:end).';
     Rx_block=Rx_data(:,Gap+1:Gap+round((K+L)*Ns));%/(1-0.005)                             5~0.0005    30~0.003
     
     doppler_scale(nblk)=doppler(1);
@@ -173,28 +175,35 @@ if(ifOMP)
     tic
     S_EstO=MIMO_LMMSE_Equalization(z,H,K,pattern,Nr,Nt,MMode,nKr,N0);
     toc
-    SO=(diag(repmat(pattern,1,K/lp))*S_EstO.').';
+    SO=zeros(Nt,K);
+    SO_data=zeros(Nt,K);
+    for nt=1:Nt
+        SO(nt,:)=(diag(repmat(pattern(:,nt).'>0,1,K/lp))*S_EstO(nt,:).').';
+        SO_data(nt,:)=(diag(repmat(pattern(:,nt).'==1,1,K/lp))*S_EstO(nt,:).').';
+    end
     SO(SO==0)=[];
+    SO_data(SO_data==0)=[];
     SO=reshape(SO,Nt,[]);
+    SO_data=reshape(SO_data,Nt,[]);
     scatterplot(SO(1,:));
     title('OMP',FontSize=20);
 
     for nt=1:Nt
         if (strcmp(MMode,'QPSK'))
-            Dec_CodBitO= randdeintrlv(demod_qpsk(SO(nt,:)),0);
+            Dec_CodBitO= randdeintrlv(demod_qpsk(SO_data(nt,:)),0);
         elseif (strcmp(MMode,'16QAM'))
-            Dec_CodBitO= randdeintrlv(demod_mqam(SO(nt,:),16),0);
+            Dec_CodBitO= randdeintrlv(demod_mqam(SO_data(nt,:),16),0);
         end
         Decod_InfoBitO= vitdec(Dec_CodBitO,T214,tblen,'cont','hard');
         Decod_InfoBitO= Decod_InfoBitO(tblen+1: Nbit_d);
-        ErrNum1= sum(block_bit(nt,1: Nbit_d-tblen)~=Decod_InfoBitO);
+        ErrNum1= sum(data_bit(nt,1: Nbit_d-tblen)~=Decod_InfoBitO);
         ErrNum2=sum(code_bitt_d((nt-1)*Nblock+nblk,:)~=Dec_CodBitO);
         ber_recO(nt,nblk)= ErrNum1/(Nbit_d);
         ber_recrawO(nt,nblk)=ErrNum2/(Nbit_d/rate);
     end
 
     BER_costO=0;
-    symbol_errO=data_sym_t(:,nblk:Nblock:end).'-SO;
+    symbol_errO=data_sym_t(:,nblk:Nblock:end).'-SO_data;
     for nt=1:Nt
         for k=1:length(symbol_errO)
             BER_costO=BER_costO+(symbol_errO(nt,k)*conj(symbol_errO(nt,k)));
@@ -204,51 +213,52 @@ if(ifOMP)
 end
 
 %-----------LS-------------
-    y=Rx_block(:,1: Ns: Ns*K);
-    ola=Rx_block(:,1+K*Ns: Ns: (K+L-1)*Ns);
-    y(:,1:L-1)=y(:,1:L-1)+ola(:,1:L-1);
-    h= FreqDomain_MIMO_ChnnEst_fn_26May11(y, block_symbol, Nt, Nr, Ns, K, L, sc_idx, SNR);
-%     figure();
-%     plot(abs(h(1,:)));
+    if(ifLS)
+        y=Rx_block(:,1: Ns: Ns*K);
+        ola=Rx_block(:,1+K*Ns: Ns: (K+L-1)*Ns);
+        y(:,1:L-1)=y(:,1:L-1)+ola(:,1:L-1);
+        h= FreqDomain_MIMO_ChnnEst_fn_26May11(y, block_symbol, Nt, Nr, Ns, K, L, sc_idx, SNR);
+        %     figure();
+        %     plot(abs(h(1,:)));
 
-    LLa_cod= log(0.5)*ones(2*Nt,Nbps*K);
-    LLR_info= zeros(Nt,Nbit_s);
+        LLa_cod= log(0.5)*ones(2*Nt,Nbps*K);
+        LLR_info= zeros(Nt,Nbit_s);
 
-    if (strcmp(MMode,'QPSK'))
-        [S_Est LLe_cod]= MIMO_OFDM_SoftEqu_qpsk_fn_28may11(y,LLa_cod,h,K,Ns,L,Nt,Nr,Nbps,SNRdB);
-    elseif (strcmp(MMode,'16QAM'))
-        [S_Est LLe_cod]= MIMO_OFDM_SoftEqu_16qam_fn_31may11(y,LLa_cod,h,K,Ns,L,Nt,Nr,Nbps,SNRdB);
-    end
-    S_Est_Iter= S_Est;%((k-1)*Nt+1: k*Nt,:)
-
-    S=(diag(repmat(pattern,1,K/lp))*S_Est.').';
-    S(S==0)=[];
-    S=reshape(S,Nt,[]);
-    scatterplot(S(1,:));
-    title('LS',FontSize=20);
-
-    BER_cost=0;
-    symbol_err=data_sym_t(:,nblk:Nblock:end).'-S;
-    for nt=1:Nt
-        for k=1:length(symbol_err)
-            BER_cost=BER_cost+(symbol_err(nt,k)*conj(symbol_err(nt,k)));
-        end
-    end
-
-    for nt=1:Nt
         if (strcmp(MMode,'QPSK'))
-            Dec_CodBit= randdeintrlv(demod_qpsk(S(nt,:)),0);
+            [S_Est LLe_cod]= MIMO_OFDM_SoftEqu_qpsk_fn_28may11(y,LLa_cod,h,K,Ns,L,Nt,Nr,Nbps,SNRdB);
         elseif (strcmp(MMode,'16QAM'))
-            Dec_CodBit= randdeintrlv(demod_mqam(S(nt,:),16),0);
+            [S_Est LLe_cod]= MIMO_OFDM_SoftEqu_16qam_fn_31may11(y,LLa_cod,h,K,Ns,L,Nt,Nr,Nbps,SNRdB);
+        end
+        S_Est_Iter= S_Est;%((k-1)*Nt+1: k*Nt,:)
+
+        S=(diag(repmat(pattern,1,K/lp))*S_Est.').';
+        S(S==0)=[];
+        S=reshape(S,Nt,[]);
+        scatterplot(S(1,:));
+        title('LS',FontSize=20);
+
+        BER_cost=0;
+        symbol_err=data_sym_t(:,nblk:Nblock:end).'-S;
+        for nt=1:Nt
+            for k=1:length(symbol_err)
+                BER_cost=BER_cost+(symbol_err(nt,k)*conj(symbol_err(nt,k)));
+            end
         end
 
-        Decod_InfoBit1= vitdec(Dec_CodBit,T214,tblen,'cont','hard');
-        Decod_InfoBit1= Decod_InfoBit1(tblen+1: Nbit_d);
-        ErrNum1= sum(block_bit(nt,1: Nbit_d-tblen)~=Decod_InfoBit1);
-        ErrNum2=sum(code_bitt_d((nt-1)*Nblock+nblk,:)~=Dec_CodBit);
-        ber_rec(nt,nblk)=ErrNum1/(Nbit_d);
-        ber_recraw(nt,nblk)=ErrNum2/(Nbit_d/rate);
-    end
+        for nt=1:Nt
+            if (strcmp(MMode,'QPSK'))
+                Dec_CodBit= randdeintrlv(demod_qpsk(S(nt,:)),0);
+            elseif (strcmp(MMode,'16QAM'))
+                Dec_CodBit= randdeintrlv(demod_mqam(S(nt,:),16),0);
+            end
 
+            Decod_InfoBit1= vitdec(Dec_CodBit,T214,tblen,'cont','hard');
+            Decod_InfoBit1= Decod_InfoBit1(tblen+1: Nbit_d);
+            ErrNum1= sum(data_bit(nt,1: Nbit_d-tblen)~=Decod_InfoBit1);
+            ErrNum2=sum(code_bitt_d((nt-1)*Nblock+nblk,:)~=Dec_CodBit);
+            ber_rec(nt,nblk)=ErrNum1/(Nbit_d);
+            ber_recraw(nt,nblk)=ErrNum2/(Nbit_d/rate);
+        end
+    end
 end
 % delete(gcp('nocreate'));
