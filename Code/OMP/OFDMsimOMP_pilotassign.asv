@@ -1,5 +1,5 @@
 clc;
-clear all;
+clearvars;
 close all;
 
 % parpool('local',16);
@@ -15,16 +15,17 @@ if(strcmp(MMode,'QPSK'))
 elseif(strcmp(MMode,'16QAM'))
     Nbps=4;
 end
-pattern=[2,0,0,0,1,1,1,0
-                    0,0,2,0,1,1,1,0].';
-% sc=[1,1,1,1];
+pattern=[0,2,0,0,1,1,1,1;
+         0,0,2,0,1,1,1,1].';
+% pattern=[2,1,1,1;
+%          2,1,1,1].';
 lp=height(pattern);
 nKr=length(find(pattern(:,1)==0))/lp;
 pKr=length(find(pattern(:,1)==2))/lp;
 dKr=1-nKr-pKr;
 
 Nt=width(pattern);
-Nr=8;
+Nr=4;
 Ns=16;
 sc_idx=repmat(mod(find(pattern==2),lp),[1,K/lp])+repmat([0:lp:K-1],[Nt,1]);
 
@@ -134,7 +135,10 @@ for nblk=1: 1
     Noffset=(nblk-1)*(K+Kg)-floor(doppler_scale(max(1,nblk-1))*(K+Kg)*(nblk-1));
     Gap=Ns*Noffset;
     block_symbol=Tx_sym(:,nblk:Nblock:end);
-    pilot_symbol=block_symbol(sc_idx.').';
+    pilot_symbol=zeros(size(sc_idx));
+    for nt=1:Nt
+        pilot_symbol(nt,:)=block_symbol(sc_idx.').';
+    end
     block_symbol=block_symbol.';
     data_bit=data_seq(:,nblk:Nblock:end).';
     Rx_block=Rx_data(:,Gap+1:Gap+round((K+L)*Ns));%/(1-0.005)                             5~0.0005    30~0.003
@@ -163,43 +167,62 @@ for nblk=1: 1
 P=sum(sum(abs(Rx_block(:,1:K*Ns)).^2))/(K*Nr*Ns);
 N0=P/(SNR+1);
 if(ifOMP)
+    A=zeros(1,Nt);
+
     yO=Rx_block(:,1: Ns: Ns*K).';
     olaO=Rx_block(:,1+K*Ns: Ns: (K+L-1)*Ns).';
     yO(1:L-1,:)=yO(1:L-1,:)+olaO(1:L-1,:);
-
     z=(fft(yO)./sqrt(height(yO)));
-    tic
-    H=OMP_test(z,0,B,K,sc_idx,block_symbol.',-0.00005,0.00005,0.00001,cfo(nblk),L,4,SNR);
-    toc
-%     S_EstO=((H'*H+N0*eye(K))\H'*z).';
-    tic
-    S_EstO=MIMO_LMMSE_Equalization(z,H,K,pattern,Nr,Nt,MMode,nKr,N0);
-    toc
-    SO=zeros(Nt,K);
-    SO_data=zeros(Nt,K);
-    for nt=1:Nt
-        SO(nt,:)=(diag(repmat(pattern(:,nt).'>0,1,K/lp))*S_EstO(nt,:).').';
-        SO_data(nt,:)=(diag(repmat(pattern(:,nt).'==1,1,K/lp))*S_EstO(nt,:).').';
-    end
-    SO(SO==0)=[];
-    SO_data(SO_data==0)=[];
-    SO=reshape(SO,Nt,[]);
-    SO_data=reshape(SO_data,Nt,[]);
-    scatterplot(SO(1,:));
-    title('OMP',FontSize=20);
 
-    for nt=1:Nt
-        if (strcmp(MMode,'QPSK'))
-            Dec_CodBitO= randdeintrlv(demod_qpsk(SO_data(nt,:)),0);
-        elseif (strcmp(MMode,'16QAM'))
-            Dec_CodBitO= randdeintrlv(demod_mqam(SO_data(nt,:),16),0);
+    tic
+    H=OMP_test(z,0,B,K,sc_idx.',block_symbol.',-0.00005,0.00005,0.00001,cfo(nblk),L,4,SNR);
+    toc
+
+    for niter=1:1
+        Bar=zeros(Nt,2);% (:,1)data    (:,2)pilot
+        Var=zeros(Nt,2);
+        for nt=1:Nt
+            if(niter==1)
+                Bar(nt,1)=0;Var(nt,1)=1;
+                Bar(nt,2)=mean(pilot_symbol(nt,:));Var(nt,2)=var(pilot_symbol(nt,:));
+            else
+                Bar(nt,1)=mean(SO_data(nt,:));Var(nt,1)=var(SO_data(nt,:));
+                Bar(nt,2)=Bar(nt,2);Var(nt,2)=Var(nt,2);
+            end
         end
-        Decod_InfoBitO= vitdec(Dec_CodBitO,T214,tblen,'cont','hard');
-        Decod_InfoBitO= Decod_InfoBitO(tblen+1: Nbit_d);
-        ErrNum1= sum(data_bit(nt,1: Nbit_d-tblen)~=Decod_InfoBitO);
-        ErrNum2=sum(code_bitt_d((nt-1)*Nblock+nblk,:)~=Dec_CodBitO);
-        ber_recO(nt,nblk)= ErrNum1/(Nbit_d);
-        ber_recrawO(nt,nblk)=ErrNum2/(Nbit_d/rate);
+
+        tic
+        S_EstO=MIMO_LMMSE_Equalization(z,H,K,pattern.',Nr,Nt,MMode,nKr,N0,Bar,Var);
+        toc
+        SO=zeros(K,Nt);
+        SO_data=zeros(K,Nt);
+        for nt=1:Nt
+            SO(:,nt)=(diag(repmat(pattern(:,nt).'>0,1,K/lp))*S_EstO(nt,:).');
+            SO_data(:,nt)=(diag(repmat(pattern(:,nt).'==1,1,K/lp))*S_EstO(nt,:).');
+        end
+        SO(SO==0)=[];
+        SO_data(SO_data==0)=[];
+        SO=reshape(SO.',[],Nt).';
+        SO_data=reshape(SO_data.',[],Nt).';
+        scatterplot(SO(2,:));
+        title('OMP',FontSize=20);
+
+        for nt=1:Nt
+            if (strcmp(MMode,'QPSK'))
+                Dec_CodBitO= randdeintrlv(demod_qpsk(SO_data(nt,:)),0);
+            elseif (strcmp(MMode,'16QAM'))
+                Dec_CodBitO= randdeintrlv(demod_mqam(SO_data(nt,:),16),0);
+            end
+            Decod_InfoBitO= vitdec(Dec_CodBitO,T214,tblen,'cont','hard');
+            Decod_InfoBitO= Decod_InfoBitO(tblen+1: Nbit_d);
+            ErrNum1= sum(data_bit(nt,1: Nbit_d-tblen)~=Decod_InfoBitO);
+            ErrNum2=sum(code_bitt_d((nt-1)*Nblock+nblk,:)~=Dec_CodBitO);
+            ber_recO(nt,nblk)= ErrNum1/(Nbit_d);
+            ber_recrawO(nt,nblk)=ErrNum2/(Nbit_d/rate);
+            if(ber_recO(nt,nblk)==0)
+                A(nt)=1;
+            end
+        end
     end
 
     BER_costO=0;

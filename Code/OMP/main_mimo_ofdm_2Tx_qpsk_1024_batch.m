@@ -6,9 +6,9 @@ clc
 clear all
 close all
 
-addpath DopplerScaleEstimation/Code/RXSyncData_SPACE08/2Tx_OFDM  %save Sync BB signal
-addpath DopplerScaleEstimation/Code/RefSig %LFM, RRC filter etc.
-addpath DopplerScaleEstimation/Code/Turbo_OFDM_QPSK_2Tx_28May11
+addpath ..\RXSyncData_SPACE08\2Tx_OFDM  %save Sync BB signal
+addpath ..\RefSig %LFM, RRC filter etc.
+addpath ..\Turbo_OFDM_QPSK_2Tx_28May11
 
 Fs=1e7/256;  %39.0625 kHz, Sampling Frequency
 Fc=13e3;     %carrier frequency  (Hz)
@@ -35,11 +35,11 @@ L= 100;                 %length of channel
 
 % Chnn_idx=[1];                              %01 phone
 % Chnn_idx=[1 11];                           %02 phones
-% Chnn_idx=[1 3 7 11];                      %04 phones
+Chnn_idx=[1 3 7 11];                      %04 phones
 % Chnn_idx=[1 3 5 7 9 11];                  %06 phones
 % Chnn_idx=[1 3 5 6 7 9 11 12];             %08 phones
 % Chnn_idx=[1 3 4 5 6 7 9 10 11 12];        %10 phones
-Chnn_idx=[1:12];                          %12 phones
+% Chnn_idx=[1:12];                          %12 phones
 Nr= length(Chnn_idx);   %# of receive hydrophones
 
 LL_min= -1e5;
@@ -112,7 +112,7 @@ for packet_idx= [1] %[1 2 3 4 5 6 8 11 14 20 23 26 29 32]
             N0=P/(1+SNR);
             tic
 %             S_EstO=MIMO_LMMSE_Equalization(reshape(z,1,K*Nr),H,K,[1,1,1,1],Nr,Nt,'QPSK',0,N0);
-            S_EstO=MIMO_LMMSE_Equalization(z,H,K,[1,1,1,1],Nr,Nt,'QPSK',0,N0,D);
+            S_EstO=MIMO_LMMSE_Equalization(z,H,K,[1,1,1,1].',Nr,Nt,'QPSK',0,N0,D);
             toc
             SO=S_EstO;
             for  nt=1:Nt
